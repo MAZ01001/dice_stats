@@ -22,3 +22,20 @@ DND dice rolls and statistics
 The percentages at the end of each row show how likely it is for any given roll to succeed and at the bottom of the page is the total chance of success over all rolls.
 
 You can also navigate this page with keyboard only (and touch should also work just fine).
+
+## Quick start
+
+You can start with a dice up and rolling like so (case insensitive)
+
+- Coin: <https://maz01001.github.io/dice_stats/?C>
+- D4: <https://maz01001.github.io/dice_stats/?D4>
+- D6: <https://maz01001.github.io/dice_stats/?D6>
+- D8: <https://maz01001.github.io/dice_stats/?D8>
+- D10: <https://maz01001.github.io/dice_stats/?D10>
+- D12: <https://maz01001.github.io/dice_stats/?D12>
+- D20: <https://maz01001.github.io/dice_stats/?D20>
+- D100: <https://maz01001.github.io/dice_stats/?D100>
+
+## WIP
+
+- Calculate statistics for multiple (different) dice in one row
