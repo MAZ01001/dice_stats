@@ -214,3 +214,195 @@ const Dice=class Dice{
     }
 };
 
+/**
+ * ## Class for creating rolls (rows)
+ * uses {@linkcode DiceType}, {@linkcode OperationType}, {@linkcode html.sheet}, {@linkcode html.row}, and {@linkcode Dice} internally
+ */
+const Roll=class Roll{
+    // TODO add more dice ~ see Roll:Probability
+    static MAX_DICE=1;
+    /**@type {(a:number,b:number)=>boolean}*/static[OperationType.GE](a,b){return a>=b;}
+    /**@type {(a:number,b:number)=>boolean}*/static[OperationType.LE](a,b){return a<=b;}
+    /**@type {(a:number,b:number)=>boolean}*/static[OperationType.GT](a,b){return a>b;}
+    /**@type {(a:number,b:number)=>boolean}*/static[OperationType.LT](a,b){return a<b;}
+    /**@type {(a:number,b:number)=>boolean}*/static[OperationType.EQ](a,b){return a===b;}
+    /**
+     * ## Calculate probability of a {@linkcode dice} throw in relation to {@linkcode value} and {@linkcode operation}
+     * currently only supports 1 {@linkcode dice}
+     * @param {number} value
+     * @param {OperationType} operation
+     * @param {DiceType[]} dice
+     * @returns {number} percentage `[0,1]` or `NaN` if {@linkcode value} is `NaN` or {@linkcode dice} holds no dice
+     * @throws {SyntaxError} when {@linkcode operation} has invalid value
+     * @throws {RangeError} when {@linkcode dice} has too many elements
+     */
+    static Probability(value,operation,dice){
+        if(dice.length==0||Number.isNaN(value))return NaN;
+        if(dice.length===1)switch(operation){
+            case OperationType.GE:return dice[0]===DiceType.D100?(value<10?0:value>=100?1:Math.trunc(value/10)/10):(value<1?0:value>=dice[0]?1:value/dice[0]);
+            case OperationType.LE:return dice[0]===DiceType.D100?(value<=10?1:value>100?0:(10-Math.trunc((value-1)/10))/10):(value<=1?1:value>dice[0]?0:(dice[0]-(value-1))/dice[0]);
+            case OperationType.GT:return dice[0]===DiceType.D100?(value<=10?0:value>100?1:Math.trunc((value-1)/10)/10):(value<=1?0:value>dice[0]?1:(value-1)/dice[0]);
+            case OperationType.LT:return dice[0]===DiceType.D100?(value<10?1:value>=100?0:(10-Math.trunc(value/10))/10):(value<1?1:value>=dice[0]?0:(dice[0]-value)/dice[0]);
+            case OperationType.EQ:return dice[0]===DiceType.D100?(value<10||value>100?0:value%10===0?.1:0):(value<1||value>dice[0]?0:1/dice[0]);
+            default:throw new SyntaxError("[Roll:Probability] operation has invalid value");
+        }
+        // TODO add more dice (calculate probability of multiple different dice)
+        throw new RangeError("[Roll:Probability] can't calculate probability of more than one dice");
+    }
+    /**
+     * ## Format percentage number to a string (including % sign)
+     * @param {number} percent - `[0,1]` or `NaN`
+     * @returns {string} `0%` to `100%` up to 3 decimal places (rounded) or `--%` when {@linkcode percent} is `NaN`
+     */
+    static FormatPercent(percent){return typeof percent!=="number"||Number.isNaN(percent)?"--%":((percent*100).toFixed(3).replace(/(\.\d*[1-9])0*$|\.0*$/,"$1")+"%");}
+    /**## [internal] get numeric value from {@linkcode Roll._value_} or `NaN` if invalid*/
+    get _valueNum_(){return this._value_.checkValidity()?Number(this._value_.value):NaN}
+    /**## [internal] Calculate success rate after dice roll and set {@linkcode Roll._diceContainer_} class*/
+    _UpdateClass_(){
+        if(this._dice_.size===0)return;
+        const num=this._valueNum_;
+        if(Number.isNaN(num))return;
+        let total=0;
+        this._dice_.forEach(v=>void(total+=v.num));
+        if(Number.isNaN(total))return;
+        this._diceContainer_.classList.add(Roll[this._op_.value](num,total)?"success":"failure");
+    }
+    /**## [internal] Update {@linkcode Roll.chance} via {@linkcode Roll.Probability}*/
+    _UpdateChance_(){
+        /**@type {DiceType[]}*/const dice=[];
+        this._dice_.forEach(v=>dice.push(v.type));
+        this.chance=Roll.Probability(this._valueNum_,this._op_.value,dice);
+        this._chance_.textContent=Roll.FormatPercent(this.chance);
+        this._CallbackChance_();
+    }
+    /**## [internal] Update {@linkcode Roll._diceContainer_} class and {@linkcode Roll._chance_}*/
+    _UpdateRow_(){
+        this._diceContainer_.classList.remove("success","failure");
+        this._UpdateClass_();
+        this._UpdateChance_();
+    }
+    /**
+     * ## [internal] Remove {@linkcode dice} from collection and call {@linkcode Roll._UpdateRow_}
+     * re-enables {@linkcode Roll._add_} when below {@linkcode Roll.MAX_DICE}
+     * @param {Dice} dice
+     */
+    _RemDice_(dice){
+        this._dice_.delete(dice);
+        this._UpdateRow_();
+        if(this._dice_.size<Roll.MAX_DICE)this._add_.disabled=false;
+    }
+    /**
+     * ## Create a new {@linkcode Roll} object
+     * @param {()=>void} CallbackRoll - called every dice roll within this collection
+     * @param {()=>void} CallbackRollEnd - called after every dice roll within this collection
+     * @param {()=>void} CallbackChance - called after every change to {@linkcode Roll.chance}
+     * @param {(self:Roll)=>void} CallbackRemove - called when this roll (row) is removed from DOM and it's safe to delete this object (given as the first parameter)
+     */
+    constructor(CallbackRoll,CallbackRollEnd,CallbackChance,CallbackRemove){
+        /**@type {DocumentFragment}*/const T=html.row.content.cloneNode(true);
+        /**@type {HTMLDivElement}*/this.html=T.firstElementChild;
+        /**@type {HTMLSpanElement}*/this._name_=T.querySelector("div.row>span");
+        /**@type {HTMLInputElement}*/this._value_=T.querySelector("div.row>input");
+        /**@type {HTMLSelectElement}*/this._op_=T.querySelector("div.row>select");
+        /**@type {HTMLDivElement}*/this._diceContainer_=T.querySelector("div.row>div.dice");
+        /**@type {HTMLSpanElement}*/this._chance_=T.querySelector("div.row>div.trail>span");
+        /**@type {HTMLInputElement}*/this._add_=T.querySelector("div.row>div.trail>input");
+        /**@type {HTMLSelectElement}*/this._addSelect_=T.querySelector("div.row>div.trail>select");
+        html.sheet.append(T);
+        /**@type {()=>void}*/this._CallbackRoll_=CallbackRoll;
+        /**@type {()=>void}*/this._CallbackRollEnd_=CallbackRollEnd;
+        /**@type {()=>void}*/this._CallbackChance_=CallbackChance;
+        /**@type {(self:Roll)=>void}*/this._CallbackRemove_=CallbackRemove;
+        /**@type {number} percentage (`[0,1]`) chance for this dice roll (row)*/
+        this.chance=NaN;
+        /**@type {Set<Dice>} [internal] collection of {@linkcode Dice} in {@linkcode Roll._diceContainer_}*/
+        this._dice_=new Set();
+        /**@type {CSSStyleDeclaration} [internal] live style declarations of {@linkcode Roll._diceContainer_}*/
+        this._diceContainerStyle_=getComputedStyle(this._diceContainer_);
+        this._name_.addEventListener("blur",()=>{
+            if((this._name_.textContent=this._name_.textContent.trim())==="")this.Remove();
+        },{passive:true});
+        this._name_.addEventListener("keydown",ev=>{
+            this._name_.textContent=this._name_.textContent.trim();
+            if(ev.key==="Enter"){
+                ev.preventDefault();
+                if(this._name_.textContent==="")this.Remove();
+            }
+        },{passive:false});
+        this._value_.addEventListener("input",()=>this._UpdateRow_(),{passive:true});
+        this._value_.addEventListener("keydown",ev=>{
+            if(ev.key!=="Enter"||ev.repeat)return;
+            ev.preventDefault();
+            this.RollAll();
+        },{passive:false});
+        this._op_.addEventListener("change",()=>this._UpdateRow_(),{passive:true});
+        this._add_.addEventListener("click",()=>{
+            this.AddDice(Number(this._addSelect_.value));
+            this._UpdateRow_();
+        },{passive:true});
+        this._diceContainer_.addEventListener("dblclick",ev=>{
+            if(ev.target!==this._diceContainer_)return;
+            const bounds=this._diceContainer_.getBoundingClientRect();
+            const offsetLeft=Math.trunc(bounds.right-Number.parseFloat(this._diceContainerStyle_.borderRightWidth)-ev.x);
+            const offsetBottom=Math.trunc(bounds.bottom-Number.parseFloat(this._diceContainerStyle_.borderBottomWidth)-ev.y);
+            if(offsetLeft<=0||offsetLeft>17||offsetBottom<=0||offsetBottom>17)return;
+            ev.preventDefault();
+            this._diceContainer_.style.removeProperty("width");
+            this._diceContainer_.style.removeProperty("height");
+        },{passive:false});
+    }
+    /**
+     * ## Add a new {@linkcode Dice} to collection/HTML
+     * aborts before exceeding {@linkcode Roll.MAX_DICE} and disables the add-a-dice button when reaching it
+     * @param {DiceType} type
+     */
+    AddDice(type){
+        if(this._dice_.size>=Roll.MAX_DICE)return;
+        this._dice_.add(new Dice(type,this._diceContainer_,()=>{this._diceContainer_.classList.remove("success","failure");this._CallbackRoll_();},()=>{this._UpdateClass_();this._CallbackRollEnd_();},dice=>this._RemDice_(dice)));
+        this._UpdateChance_();
+        if(this._dice_.size>=Roll.MAX_DICE)this._add_.disabled=true;
+    }
+    /**## Rolls all dice within this collection*/
+    RollAll(){this._dice_.forEach(v=>v.Roll());}
+    /**
+     * ## Remove all event listeners, saved {@linkcode Dice}, and {@linkcode Roll.html} from DOM
+     * use before deleting obj
+     */
+    Remove(){
+        this._name_.removeEventListener("blur",()=>{
+            if((this._name_.textContent=this._name_.textContent.trim())==="")this.Remove();
+        });
+        this._name_.removeEventListener("keydown",ev=>{
+            this._name_.textContent=this._name_.textContent.trim();
+            if(ev.key==="Enter"){
+                ev.preventDefault();
+                if(this._name_.textContent==="")this.Remove();
+            }
+        });
+        this._value_.removeEventListener("input",()=>this._UpdateRow_());
+        this._value_.removeEventListener("keydown",ev=>{
+            if(ev.key!=="Enter"||ev.repeat)return;
+            ev.preventDefault();
+            this.RollAll();
+        });
+        this._op_.removeEventListener("change",()=>this._UpdateRow_());
+        this._add_.removeEventListener("click",()=>{
+            this.AddDice(Number(this._addSelect_));
+            this._UpdateRow_();
+        });
+        this._diceContainer_.removeEventListener("dblclick",ev=>{
+            if(ev.target!==this._diceContainer_)return;
+            const bounds=this._diceContainer_.getBoundingClientRect();
+            const offsetLeft=Math.trunc(bounds.right-Number.parseFloat(this._diceContainerStyle_.borderRightWidth)-ev.x);
+            const offsetBottom=Math.trunc(bounds.bottom-Number.parseFloat(this._diceContainerStyle_.borderBottomWidth)-ev.y);
+            if(offsetLeft<=0||offsetLeft>17||offsetBottom<=0||offsetBottom>17)return;
+            ev.preventDefault();
+            this._diceContainer_.style.removeProperty("width");
+            this._diceContainer_.style.removeProperty("height");
+        });
+        this._dice_.forEach(v=>v.Remove());
+        this.html.remove();
+        this._CallbackRemove_(this);
+    }
+};
+
