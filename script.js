@@ -456,3 +456,12 @@ html.hover.addEventListener("click",()=>{
 },{passive:true});
 html.roll.addEventListener("click",()=>rolls.forEach(v=>v.RollAll()),{passive:true});
 
+if(location.search.length!==0){
+    const[,d]=location.search.match(/^\?(c|d(?:[468]|1(?:2|00?)|20))$/i)??[];
+    if(d!=null){
+        html.add.click();
+        const r=[...rolls][0];
+        r.AddDice(DiceType[d.toUpperCase()]);
+        html.roll.click();
+    }
+}
