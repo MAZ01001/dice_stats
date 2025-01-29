@@ -20,6 +20,11 @@
 <body>
     <noscript>JavaScript must be enabled!</noscript>
     <div id="box">
+        <div id="sheet"></div>
+        <input type="button" id="add" value="Add roll" autofocus title="Add a dice roll (row)">
+        <input type="button" id="hover" value="Click to remove" data-toggle="0" title="Toggle &quot;roll dice on hover/click&quot; / &quot;remove dice on click&quot;">
+        <input type="button" id="roll" value="Roll all" title="Roll all dice on the page">
+        <span id="chance" title="Total chance of success for all dice rolls (rows)">--%</span>
     </div>
     <svg id="dnd" display="none">
         <filter id="red"><feColorMatrix in="SourceGraphic" type="matrix" values="0 1 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/></filter>
