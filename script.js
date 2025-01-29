@@ -406,3 +406,53 @@ const Roll=class Roll{
     }
 };
 
+/**max number of {@linkcode rolls} allowed to exist at the same time*/
+const MAX_ROLLS=100;
+
+/**@type {Set<Roll>} collection of all {@linkcode Roll}s in {@linkcode html.sheet}*/
+const rolls=new Set();
+
+/**## Calculate if all rolls in total succeeded or failed*/
+const CalcWin=()=>{
+    let s=0,f=0;
+    for(const roll of rolls){
+        if(roll._diceContainer_.classList.contains("success"))++s;
+        if(roll._diceContainer_.classList.contains("failure"))++f;
+    }
+    if(s+f<rolls.size){
+        html.box.classList.remove("success","failure");
+        return;
+    }
+    html.box.classList.add(f>0?"failure":"success");
+};
+/**
+ * ## Calculate total chance of all {@linkcode rolls}
+ * also calls {@linkcode CalcWin}
+ */
+const CalcChance=()=>{
+    CalcWin();
+    if(rolls.size===0){
+        html.chance.textContent=Roll.FormatPercent(NaN);
+        return;
+    }
+    let p=1;
+    rolls.forEach(v=>void(p*=v.chance));
+    html.chance.textContent=Roll.FormatPercent(p);
+};
+
+html.add.addEventListener("click",()=>{
+    if(rolls.size>=MAX_ROLLS)return;
+    rolls.add(new Roll(()=>html.box.classList.remove("success","failure"),()=>CalcWin(),()=>CalcChance(),roll=>{rolls.delete(roll);CalcChance();}));
+    CalcChance();
+},{passive:true});
+html.hover.addEventListener("click",()=>{
+    if(html.hover.dataset.toggle==="0"){
+        html.hover.dataset.toggle="1";
+        html.hover.value="Point to rotate";
+    }else{
+        html.hover.dataset.toggle="0";
+        html.hover.value="Click to remove";
+    }
+},{passive:true});
+html.roll.addEventListener("click",()=>rolls.forEach(v=>v.RollAll()),{passive:true});
+
