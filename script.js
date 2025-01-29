@@ -102,3 +102,115 @@ const html=Object.freeze({
     /**@type {HTMLTemplateElement}*/row:document.getElementById("row"),
 });
 
+/**
+ * ## Class for creating dice
+ * uses {@linkcode DiceType}, {@linkcode rng}, {@linkcode html.hover}, and {@linkcode html.dice} internally
+ */
+const Dice=class Dice{
+    static ANIM_TIME=1000;
+    static ANIM_FLIP=Object.freeze({rotate:["0turn 1 0 0","2turn 1 0 0"]});
+    static ANIM_TURN=Object.freeze({rotate:["0turn 0 1 0","2turn 0 1 0"]});
+    static ANIM_ROLL=Object.freeze({rotate:["0turn 0 0 1","2turn 0 0 1"]});
+    static ANIM_TEXT=Object.freeze({opacity:[0,0,1],offset:[0,.7,1]});
+    static ANIM_DICE_CONF=Object.freeze({id:"dice",duration:Dice.ANIM_TIME,easing:"ease-out"});
+    static ANIM_TEXT_CONF=Object.freeze({id:"dice",duration:Dice.ANIM_TIME,easing:"linear"});
+    static TIMEOUT_DELAY=Dice.ANIM_TIME*.7;
+    //~ [1..max] ← 1 + floor(rng32bit * max / 2^32)
+    static get[DiceType.C](){return rng.val32<0x80000000?1:2;}
+    static get[DiceType.D4](){return 1+Math.trunc(rng.val32/0x40000000);}
+    static get[DiceType.D6](){return 1+Math.trunc(rng.val32*3/0x80000000);}
+    static get[DiceType.D8](){return 1+Math.trunc(rng.val32/0x20000000);}
+    static get[DiceType.D10](){return 1+Math.trunc(rng.val32*5/0x80000000);}
+    static get[DiceType.D12](){return 1+Math.trunc(rng.val32*3/0x40000000);}
+    static get[DiceType.D20](){return 1+Math.trunc(rng.val32*5/0x40000000);}
+    static get[DiceType.D100](){return 10+10*Math.trunc(rng.val32*5/0x80000000);}
+    /**
+     * ## [interanl] Event listener callback on {@linkcode Dice.prototype.html}
+     * non-passive | can call {@linkcode Event.preventDefault}
+     * @param {MouseEvent|KeyboardEvent} ev - `click`, `mouseenter`, or `keydown` event
+     */
+    _PointerHandler_(ev){
+        if((ev instanceof KeyboardEvent)&&ev.key!==" "&&ev.key!=="Enter")return;
+        ev.preventDefault();
+        if((ev instanceof KeyboardEvent)&&ev.repeat)return;
+        if(html.hover.dataset.toggle==="1")this.Roll();
+        else if(ev.type!=="mouseenter")this.Remove();
+    }
+    /**
+     * ## [internal] Called from {@linkcode Dice.Roll} when animation finishes
+     * puts the text on the dice and calls the {@linkcode callback} (given the constructor at init)
+     */
+    _Timeout_(){
+        this.num=Dice[this.type];
+        this._text_.textContent=String(this.num);
+        this._CallbackRollEnd_();
+    }
+    /**
+     * ## Create a new {@linkcode Dice} object
+     * @param {DiceType} type - dice type
+     * @param {HTMLElement} container - HTML container for this dice
+     * @param {()=>void} CallbackRoll - called for every dice roll (start of the roll animation - might be called more often than {@linkcode CallbackRollEnd})
+     * @param {()=>void} CallbackRollEnd - called after every dice roll (take number from {@linkcode Dice.num})
+     * @param {(self:Dice)=>void} CallbackRemove - called when this dice is removed from DOM and it's safe to delete this object (given as the first parameter)
+     * @throws {SyntaxError} when {@linkcode type} has invalid value
+     */
+    constructor(type,container,CallbackRoll,CallbackRollEnd,CallbackRemove){
+        /**@type {DocumentFragment}*/const T=html.dice.content.cloneNode(true);
+        /**@type {SVGSVGElement&HTMLElement}*/this.html=T.firstElementChild;
+        /**@type {SVGUseElement}*/this._dice_=this.html.firstElementChild;
+        /**@type {SVGTextElement}*/this._text_=this._dice_.nextElementSibling;
+        /**@type {SVGTitleElement}*/this._title_=this._text_.nextElementSibling;
+        container.append(T);
+        switch(type){
+            case DiceType.C:this._dice_.href.baseVal="#c";this._title_.textContent="C [Disc]";break;
+            case DiceType.D4:this._dice_.href.baseVal="#d4";this._title_.textContent="D4 [Tetrahedron]";break;
+            case DiceType.D6:this._dice_.href.baseVal="#d6";this._title_.textContent="D6 [Cube]";break;
+            case DiceType.D8:this._dice_.href.baseVal="#d8";this._title_.textContent="D8 [Octahedron]";break;
+            case DiceType.D10:this._dice_.href.baseVal="#d10";this._title_.textContent="D10 [Pentagonal trapezohedron]";break;
+            case DiceType.D12:this._dice_.href.baseVal="#d12";this._title_.textContent="D12 [Dodecahedron]";break;
+            case DiceType.D20:this._dice_.href.baseVal="#d20";this._title_.textContent="D20 [Icosahedron]";break;
+            case DiceType.D100:this._dice_.href.baseVal="#d10";this._title_.textContent="D100 [Pentagonal trapezohedron]";break;
+            default:throw new SyntaxError("[Dice:constructor] type has invalid value");
+        }
+        this._title_.textContent+=" click to remove/roll";
+        this.html.addEventListener("click",ev=>this._PointerHandler_(ev),{passive:false});
+        this.html.addEventListener("mouseenter",ev=>this._PointerHandler_(ev),{passive:false});
+        this.html.addEventListener("keydown",ev=>this._PointerHandler_(ev),{passive:false});
+        /**@type {DiceType} the type of dice*/this.type=type;
+        /**@type {number} current number rolled (initially `NaN`)*/this.num=NaN;
+        /**@type {()=>void}*/this._CallbackRoll_=CallbackRoll;
+        /**@type {()=>void}*/this._CallbackRollEnd_=CallbackRollEnd;
+        /**@type {(dice:Dice)=>void}*/this._CallbackRemove_=CallbackRemove;
+        /**@type {number}*/this._timeoutID_=NaN;
+        /**@type {Animation}*/this._useAnim_=this._dice_.animate(type===DiceType.C?Dice.ANIM_FLIP:(type===DiceType.D4||type===DiceType.D10||type===DiceType.D100)?Dice.ANIM_TURN:Dice.ANIM_ROLL,Dice.ANIM_DICE_CONF);
+        /**@type {Animation}*/this._textAnim_=this._text_.animate(Dice.ANIM_TEXT,Dice.ANIM_TEXT_CONF);
+        this._useAnim_.finish();
+        this._textAnim_.finish();
+    }
+    /**
+     * ## Generate Random number, animate dice roll, and display result
+     * automatically cancels pending roll animations
+     */
+    Roll(){
+        this._useAnim_.cancel();
+        this._textAnim_.cancel();
+        clearTimeout(this._timeoutID_);
+        this._text_.textContent="";
+        this._useAnim_.play();
+        this._textAnim_.play();
+        this._timeoutID_=setTimeout(()=>this._Timeout_(),Dice.TIMEOUT_DELAY);
+        this._CallbackRoll_();
+    }
+    /**
+     * ## Remove all event listeners and {@linkcode Dice.html} from DOM
+     * use before deleting obj
+     */
+    Remove(){
+        this.html.removeEventListener("click",ev=>this._PointerHandler_(ev));
+        this.html.removeEventListener("mouseenter",ev=>this._PointerHandler_(ev));
+        this.html.removeEventListener("keydown",ev=>this._PointerHandler_(ev));
+        this.html.remove();
+        this._CallbackRemove_(this);
+    }
+};
+
