@@ -9,6 +9,7 @@ DND dice rolls and statistics (success chance)
    1. You can edit the `Name` text to say what ever you whant for example `Strength`.
       - If you clear it and press enter or navigate away from it, it will remove this throw/block without further asking.
    2. Enter a number into the `Value` field to compare to the dice throw (within this block).
+      - When pressing <kbd>Enter</kbd> inside this field, all dice within this block will be rolled.
    3. Choose a comparison operator, default is &ge;, so it succeeds if `Value` is greater or equal the dice throw result (sum for multiple dice).
    4. Then, near the empty area, choose a dice type and click the <kbd>Add</kbd> button next to it, to add that dice to this dice throw (within this block).
       - To remove dice just click on them (while the colored toggle-button at the bottom is red and says <kbd>Click to remove</kbd>).
@@ -22,6 +23,8 @@ DND dice rolls and statistics (success chance)
 The percentages within each block show how likely it is for any given roll to succeed its condition and at the bottom of the page is the total chance of success over all rolls.
 
 You can also navigate this page with keyboard only (and touch should also work just fine).
+
+The layout changes to a collumn with rows instead of rows with blocks when the screen width is smaller than its height.
 
 ## Quick start
 
