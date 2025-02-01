@@ -10,7 +10,7 @@
 body{
     background-color: #000;
     color: #0f0;
-    font-family: "consolas", "Courier New", Courier, monospace;
+    font-family: "consolas", monospace;
     font-size: medium;
     color-scheme: dark;
     cursor: default;
@@ -35,9 +35,10 @@ select{user-select: none;}
 /* --------------------------------------------------------- */
 div#box{
     display: grid;
-    grid-template-columns: repeat(4,1fr);
+    grid-template-columns: repeat(5,auto);
     place-content: safe center;
     place-items: safe center;
+    text-align: center;
     gap: 1rem;
     position: fixed;
     top: 50%;
@@ -56,7 +57,7 @@ div#box{
 div#box.success{border-color: #0a0;}
 div#box.failure{border-color: #f00;}
 div#sheet{
-    grid-area: 1/1/2/5;
+    grid-area: 1/1/2/6;
     display: grid;
     grid-template-columns: repeat(5,auto);
     place-content: safe center;
@@ -67,14 +68,16 @@ div#sheet>div.row{display: contents;}
 div#sheet>div.row>span{
     min-width: 1rem;
     min-height: 1rem;
+    width: max-content;
     max-width: 10rem;
     max-height: 5rem;
+    padding: .1rem .3rem;
     overflow: auto;
 }
 div#sheet>div.row>input{
     background-color: #000;
     border: 2px inset #000;
-    width: 4.4rem;
+    width: 4rem;
 }
 div#sheet>div.row>input:invalid{border-color: #f00;}
 div#sheet>div.row>input:invalid:focus-visible{
@@ -141,7 +144,9 @@ input#hover[data-toggle="0"]{
     color: #ff0;
 }
 input#hover[data-toggle="0"]:active{background-color: #a00;}
+div#box>a{white-space: nowrap;}
 span#chance{
+    min-width: 6rem;
     font-size: x-large;
     white-space: nowrap;
 }
