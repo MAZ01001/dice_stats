@@ -19,6 +19,16 @@ input{
     font: inherit;
     color: inherit;
 }
+input:invalid{border-color: #f00;}
+input:invalid:focus-visible{
+    outline-style: solid;
+    outline-color: #f00;
+}
+input[type=number]{
+    background-color: #000;
+    border: 2px inset #000;
+    width: 4rem;
+}
 input[type=button]{
     cursor: pointer;
     font-size: small;
@@ -31,11 +41,22 @@ input[type=button]:disabled{
     background-color: #333;
 }
 input[type=button]:active{background-color: #555;}
+input[type=button][data-toggle="1"]{
+    background-color: #050;
+    border-color: #070;
+}
+input[type=button][data-toggle="1"]:active{background-color: #070;}
+input[type=button][data-toggle="0"]{
+    background-color: #800;
+    border-color: #a00;
+    color: #ff0;
+}
+input[type=button][data-toggle="0"]:active{background-color: #a00;}
 select{user-select: none;}
 /* --------------------------------------------------------- */
 div#box{
-    display: grid;
-    grid-template-columns: repeat(5,auto);
+    display: flex;
+    flex-direction: column;
     place-content: safe center;
     place-items: safe center;
     text-align: center;
@@ -44,8 +65,8 @@ div#box{
     top: 50%;
     left: 50%;
     translate: -50% -50%;
-    max-width: 100vw;
-    max-height: 100vh;
+    max-width: 100%;
+    max-height: 100%;
     width: max-content;
     height: max-content;
     overflow: auto;
@@ -57,15 +78,24 @@ div#box{
 div#box.success{border-color: #0a0;}
 div#box.failure{border-color: #f00;}
 div#sheet{
-    grid-area: 1/1/2/6;
-    display: grid;
-    grid-template-columns: repeat(5,auto);
+    display: flex;
+    flex-flow: wrap;
     place-content: safe center;
     place-items: safe center;
-    gap: 1rem;
+    gap: 2px;
 }
-div#sheet>div.row{display: contents;}
-div#sheet>div.row>span{
+div#sheet>div.throw{
+    display: flex;
+    flex-flow: column;
+    place-content: safe center;
+    place-items: safe center;
+    gap: .5rem;
+    padding: .5rem;
+    border: 2px outset #000;
+}
+div#sheet>div.throw>div.start,
+div#sheet>div.throw>div.end{display: contents;}
+div#sheet>div.throw>div.start>span{
     min-width: 1rem;
     min-height: 1rem;
     width: max-content;
@@ -74,17 +104,14 @@ div#sheet>div.row>span{
     padding: .1rem .3rem;
     overflow: auto;
 }
-div#sheet>div.row>input{
-    background-color: #000;
-    border: 2px inset #000;
-    width: 4rem;
+div#sheet>div.throw>div.start>div.head,
+div#sheet>div.throw>div.end>div.tail{
+    display: flex;
+    place-content: safe center;
+    place-items: safe center;
+    gap: .5rem;
 }
-div#sheet>div.row>input:invalid{border-color: #f00;}
-div#sheet>div.row>input:invalid:focus-visible{
-    outline-style: solid;
-    outline-color: #f00;
-}
-div#sheet>div.row>div.dice{
+div#sheet>div.throw>div.dice{
     border: 4px inset #000;
     box-shadow: 2px 2px 10px inset #000;
     background-color: #530;
@@ -96,57 +123,60 @@ div#sheet>div.row>div.dice{
     box-sizing: border-box;
     min-width: 130px;
     min-height: 110px;
+    width: calc(var(--width,1) * 100px + 30px);
+    /* BUG jittering when resizing due to dynamic layout */
     resize: both;
     max-width: 830px;
     max-height: 350px;
     overflow: auto;
     scrollbar-gutter: stable both-edges;
 }
-div#sheet>div.row>div.dice>svg{
+div#sheet>div.throw>div.dice>svg{
     vertical-align: middle;
     filter: drop-shadow(2px 4px 8px #0007);
 }
-div#sheet>div.row>div.dice>svg>use{
+div#sheet>div.throw>div.dice>svg>use{
     transform-origin: 50% 50%;
     filter: brightness(.5);
 }
-div#sheet>div.row>div.dice>svg>text{
+div#sheet>div.throw>div.dice>svg>text{
     user-select: none;
     fill: #000;
     font-size: x-large;
     text-anchor: middle;
     alignment-baseline: central;
 }
-div#sheet>div.row>div.dice.success>svg>use{filter: url(#green);}
-div#sheet>div.row>div.dice.failure>svg>use{filter: url(#red);}
-div#sheet>div.row>div.dice.failure>svg>text{fill: #ff0;}
-div#sheet>div.row>div.trail{
-    display: grid;
-    place-content: safe center;
-    place-items: safe center;
-    gap: 1rem .5rem;
-}
-div#sheet>div.row>div.trail>span{
-    grid-area: 1/1/2/3;
+div#sheet>div.throw>div.dice.success>svg>use{filter: url(#green);}
+div#sheet>div.throw>div.dice.failure>svg>use{filter: url(#red);}
+div#sheet>div.throw>div.dice.failure>svg>text{fill: #ff0;}
+div#sheet>div.throw>div.end>span{
+    min-width: 5rem;
     font-size: large;
     white-space: nowrap;
 }
-div#sheet>div.row>div.trail>input{grid-area: 2/1/3/2;}
-div#sheet>div.row>div.trail>select{grid-area: 2/2/3/3;}
-input#hover[data-toggle="1"]{
-    background-color: #050;
-    border-color: #070;
+div#nav{
+    display: flex;
+    place-content: safe center;
+    place-items: safe center;
+    gap: 1rem;
 }
-input#hover[data-toggle="1"]:active{background-color: #070;}
-input#hover[data-toggle="0"]{
-    background-color: #800;
-    border-color: #a00;
-    color: #ff0;
-}
-input#hover[data-toggle="0"]:active{background-color: #a00;}
-div#box>a{white-space: nowrap;}
+div#nav>a{white-space: nowrap;}
 span#chance{
     min-width: 6rem;
     font-size: x-large;
     white-space: nowrap;
 }
+/* --------------------------------------------------------- */
+div#box.rows>div#sheet{flex-flow: column;}
+div#box.rows>div#sheet>div.throw{flex-flow: row;}
+div#box.rows>div#sheet>div.throw>div.start,
+div#box.rows>div#sheet>div.throw>div.end{
+    display: flex;
+    flex-direction: column;
+    place-content: safe center;
+    place-items: safe center;
+    gap: 1rem;
+}
+div#box.rows>div#sheet>div.throw>div.end{flex-direction: column-reverse;}
+div#box.rows>div#nav{display: grid;}
+div#box.rows>div#nav>a{grid-area: 2/1/3/3;}
