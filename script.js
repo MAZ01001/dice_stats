@@ -476,3 +476,5 @@ if(location.search.length!==0){
         r._value_.focus();
     }
 }
+//~ remove search & hash from URL
+history.replaceState(null,"",location.href.replace(/[?#].*$/,""));
