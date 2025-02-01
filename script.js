@@ -186,6 +186,8 @@ const Dice=class Dice{
         /**@type {Animation}*/this._textAnim_=this._text_.animate(Dice.ANIM_TEXT,Dice.ANIM_TEXT_CONF);
         this._useAnim_.finish();
         this._textAnim_.finish();
+        /**@type {boolean} [internal] `true` when {@linkcode Dice.Remove} was called once*/
+        this._rem_=false;
     }
     /**
      * ## Generate Random number, animate dice roll, and display result
@@ -206,6 +208,8 @@ const Dice=class Dice{
      * use before deleting obj
      */
     Remove(){
+        if(this._rem_)return;
+        this._rem_=true;
         this.html.removeEventListener("click",ev=>this._PointerHandler_(ev));
         this.html.removeEventListener("mouseenter",ev=>this._PointerHandler_(ev));
         this.html.removeEventListener("keydown",ev=>this._PointerHandler_(ev));
@@ -350,6 +354,8 @@ const Roll=class Roll{
             this._diceContainer_.style.removeProperty("width");
             this._diceContainer_.style.removeProperty("height");
         },{passive:false});
+        /**@type {boolean} [internal] `true` when {@linkcode Roll.Remove} was called once*/
+        this._rem_=false;
     }
     /**
      * ## Add a new {@linkcode Dice} to collection/HTML
@@ -369,6 +375,8 @@ const Roll=class Roll{
      * use before deleting obj
      */
     Remove(){
+        if(this._rem_)return;
+        this._rem_=true;
         this._name_.removeEventListener("blur",()=>{
             if((this._name_.textContent=this._name_.textContent.trim())==="")this.Remove();
         });
@@ -414,19 +422,17 @@ const rolls=new Set();
 
 /**## Calculate if all rolls in total succeeded or failed*/
 const CalcWin=()=>{
-    let s=0,f=0;
+    html.box.classList.remove("success","failure");
+    if(rolls.size===0)return;
+    let f=false;
     for(const roll of rolls){
-        if(roll._diceContainer_.classList.contains("success"))++s;
-        if(roll._diceContainer_.classList.contains("failure"))++f;
+        if(roll._diceContainer_.classList.contains("failure"))f=true;
+        else if(!roll._diceContainer_.classList.contains("success"))return;
     }
-    if(s+f<rolls.size){
-        html.box.classList.remove("success","failure");
-        return;
-    }
-    html.box.classList.add(f>0?"failure":"success");
+    html.box.classList.add(f?"failure":"success");
 };
 /**
- * ## Calculate total chance of all {@linkcode rolls}
+ * ## Calculate total chance of all {@linkcode rolls} and display in {@linkcode html.chance}
  * also calls {@linkcode CalcWin}
  */
 const CalcChance=()=>{
