@@ -99,7 +99,7 @@ const html=Object.freeze({
     /**@type {HTMLInputElement}*/roll:document.getElementById("roll"),
     /**@type {HTMLSpanElement}*/chance:document.getElementById("chance"),
     /**@type {HTMLTemplateElement}*/dice:document.getElementById("dice"),
-    /**@type {HTMLTemplateElement}*/row:document.getElementById("row"),
+    /**@type {HTMLTemplateElement}*/throw:document.getElementById("throw"),
 });
 
 /**
@@ -141,8 +141,7 @@ const Dice=class Dice{
      * puts the text on the dice and calls the {@linkcode callback} (given the constructor at init)
      */
     _Timeout_(){
-        this.num=Dice[this.type];
-        this._text_.textContent=String(this.num);
+        this._text_.textContent=String(this.num=Dice[this.type]);
         this._CallbackRollEnd_();
     }
     /**
@@ -177,7 +176,7 @@ const Dice=class Dice{
         this.html.addEventListener("mouseenter",ev=>this._PointerHandler_(ev),{passive:false});
         this.html.addEventListener("keydown",ev=>this._PointerHandler_(ev),{passive:false});
         /**@type {DiceType} the type of dice*/this.type=type;
-        /**@type {number} current number rolled (initially `NaN`)*/this.num=NaN;
+        /**@type {number} current number rolled (`NaN` initially and during rolls)*/this.num=NaN;
         /**@type {()=>void}*/this._CallbackRoll_=CallbackRoll;
         /**@type {()=>void}*/this._CallbackRollEnd_=CallbackRollEnd;
         /**@type {(dice:Dice)=>void}*/this._CallbackRemove_=CallbackRemove;
@@ -197,6 +196,7 @@ const Dice=class Dice{
         this._useAnim_.cancel();
         this._textAnim_.cancel();
         clearTimeout(this._timeoutID_);
+        this.num=NaN;
         this._text_.textContent="";
         this._useAnim_.play();
         this._textAnim_.play();
@@ -219,8 +219,8 @@ const Dice=class Dice{
 };
 
 /**
- * ## Class for creating rolls (rows)
- * uses {@linkcode DiceType}, {@linkcode OperationType}, {@linkcode html.sheet}, {@linkcode html.row}, and {@linkcode Dice} internally
+ * ## Class for creating dice rolls
+ * uses {@linkcode DiceType}, {@linkcode OperationType}, {@linkcode html.sheet}, {@linkcode html.throw}, and {@linkcode Dice} internally
  */
 const Roll=class Roll{
     // TODO add more dice ~ see Roll:Probability
@@ -263,6 +263,7 @@ const Roll=class Roll{
     get _valueNum_(){return this._value_.checkValidity()?Number(this._value_.value):NaN}
     /**## [internal] Calculate success rate after dice roll and set {@linkcode Roll._diceContainer_} class*/
     _UpdateClass_(){
+        this._diceContainer_.classList.remove("success","failure");
         if(this._dice_.size===0)return;
         const num=this._valueNum_;
         if(Number.isNaN(num))return;
@@ -279,9 +280,9 @@ const Roll=class Roll{
         this._chance_.textContent=Roll.FormatPercent(this.chance);
         this._CallbackChance_();
     }
-    /**## [internal] Update {@linkcode Roll._diceContainer_} class and {@linkcode Roll._chance_}*/
+    /**## [internal] Update {@linkcode Roll._diceContainer_} CSS `--width` and class and call {@linkcode Roll._UpdateChance_}*/
     _UpdateRow_(){
-        this._diceContainer_.classList.remove("success","failure");
+        this._diceContainer_.style.setProperty("--width",String(Math.ceil(Math.sqrt(this._dice_.size))));
         this._UpdateClass_();
         this._UpdateChance_();
     }
@@ -300,24 +301,24 @@ const Roll=class Roll{
      * @param {()=>void} CallbackRoll - called every dice roll within this collection
      * @param {()=>void} CallbackRollEnd - called after every dice roll within this collection
      * @param {()=>void} CallbackChance - called after every change to {@linkcode Roll.chance}
-     * @param {(self:Roll)=>void} CallbackRemove - called when this roll (row) is removed from DOM and it's safe to delete this object (given as the first parameter)
+     * @param {(self:Roll)=>void} CallbackRemove - called when this roll is removed from DOM and it's safe to delete this object (given as the first parameter)
      */
     constructor(CallbackRoll,CallbackRollEnd,CallbackChance,CallbackRemove){
-        /**@type {DocumentFragment}*/const T=html.row.content.cloneNode(true);
+        /**@type {DocumentFragment}*/const T=html.throw.content.cloneNode(true);
         /**@type {HTMLDivElement}*/this.html=T.firstElementChild;
-        /**@type {HTMLSpanElement}*/this._name_=T.querySelector("div.row>span");
-        /**@type {HTMLInputElement}*/this._value_=T.querySelector("div.row>input");
-        /**@type {HTMLSelectElement}*/this._op_=T.querySelector("div.row>select");
-        /**@type {HTMLDivElement}*/this._diceContainer_=T.querySelector("div.row>div.dice");
-        /**@type {HTMLSpanElement}*/this._chance_=T.querySelector("div.row>div.trail>span");
-        /**@type {HTMLInputElement}*/this._add_=T.querySelector("div.row>div.trail>input");
-        /**@type {HTMLSelectElement}*/this._addSelect_=T.querySelector("div.row>div.trail>select");
+        /**@type {HTMLSpanElement}*/this._name_=T.querySelector("div.throw>div.start>span");
+        /**@type {HTMLInputElement}*/this._value_=T.querySelector("div.throw>div.start>div.head>input");
+        /**@type {HTMLSelectElement}*/this._op_=T.querySelector("div.throw>div.start>div.head>select");
+        /**@type {HTMLDivElement}*/this._diceContainer_=T.querySelector("div.throw>div.dice");
+        /**@type {HTMLInputElement}*/this._add_=T.querySelector("div.throw>div.end>div.tail>input");
+        /**@type {HTMLSelectElement}*/this._addSelect_=T.querySelector("div.throw>div.end>div.tail>select");
+        /**@type {HTMLSpanElement}*/this._chance_=T.querySelector("div.throw>div.end>span");
         html.sheet.append(T);
         /**@type {()=>void}*/this._CallbackRoll_=CallbackRoll;
         /**@type {()=>void}*/this._CallbackRollEnd_=CallbackRollEnd;
         /**@type {()=>void}*/this._CallbackChance_=CallbackChance;
         /**@type {(self:Roll)=>void}*/this._CallbackRemove_=CallbackRemove;
-        /**@type {number} percentage (`[0,1]`) chance for this dice roll (row)*/
+        /**@type {number} percentage (`[0,1]`) chance for this dice roll*/
         this.chance=NaN;
         /**@type {Set<Dice>} [internal] collection of {@linkcode Dice} in {@linkcode Roll._diceContainer_}*/
         this._dice_=new Set();
@@ -365,7 +366,7 @@ const Roll=class Roll{
     AddDice(type){
         if(this._dice_.size>=Roll.MAX_DICE)return;
         this._dice_.add(new Dice(type,this._diceContainer_,()=>{this._diceContainer_.classList.remove("success","failure");this._CallbackRoll_();},()=>{this._UpdateClass_();this._CallbackRollEnd_();},dice=>this._RemDice_(dice)));
-        this._UpdateChance_();
+        this._UpdateRow_();
         if(this._dice_.size>=Roll.MAX_DICE)this._add_.disabled=true;
     }
     /**## Rolls all dice within this collection*/
@@ -462,12 +463,16 @@ html.hover.addEventListener("click",()=>{
 },{passive:true});
 html.roll.addEventListener("click",()=>rolls.forEach(v=>v.RollAll()),{passive:true});
 
+window.addEventListener("resize",()=>void html.box.classList.toggle("rows",window.innerWidth<window.innerHeight),{passive:true});
+window.dispatchEvent(new UIEvent("resize"));
+
 if(location.search.length!==0){
     const[,d]=location.search.match(/^\?(c|d(?:[468]|1(?:2|00?)|20))$/i)??[];
     if(d!=null){
         html.add.click();
-        const r=[...rolls][0];
+        /**@type {Roll}*/const r=rolls.values().next().value;
         r.AddDice(DiceType[d.toUpperCase()]);
-        html.roll.click();
+        r.RollAll();
+        r._value_.focus();
     }
 }
