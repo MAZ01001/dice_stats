@@ -150,7 +150,7 @@ div#sheet>div.throw>div.dice.success>svg>use{filter: url(#green);}
 div#sheet>div.throw>div.dice.failure>svg>use{filter: url(#red);}
 div#sheet>div.throw>div.dice.failure>svg>text{fill: #ff0;}
 div#sheet>div.throw>div.end>span{
-    min-width: 5rem;
+    min-width: 9.3rem;
     font-size: large;
     white-space: nowrap;
 }
@@ -162,7 +162,7 @@ div#nav{
 }
 div#nav>a{white-space: nowrap;}
 span#chance{
-    min-width: 6rem;
+    min-width: 12.4rem;
     font-size: x-large;
     white-space: nowrap;
 }
