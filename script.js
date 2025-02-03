@@ -220,11 +220,26 @@ const Dice=class Dice{
 
 /**
  * ## Class for creating dice rolls
- * uses {@linkcode DiceType}, {@linkcode OperationType}, {@linkcode html.sheet}, {@linkcode html.throw}, and {@linkcode Dice} internally
+ * uses {@linkcode DiceType}, {@linkcode OperationType}, {@linkcode html.sheet}, {@linkcode html.hover}, {@linkcode html.throw}, and {@linkcode Dice} internally
  */
 const Roll=class Roll{
-    // TODO add more dice ~ see Roll:Probability
-    static MAX_DICE=1;
+    /**
+     * ## Maximum amount of dice per block
+     * limited by reasonable compute time of {@linkcode Roll.Probability}
+     * keep in range `[1..2^53[` (positive safe integer)
+     */
+    static MAX_DICE=5;
+    /**
+     * ## Maximum number of decimal places for {@linkcode Roll.FormatPercent}
+     * only visual precision
+     * keep in range `[0..20]` (positive integer <= 20)
+     */
+    static PRINT_PRECISION=5;
+    /**
+     * ## With and height of the resizer corner
+     * used to set the size of {@linkcode Roll._diceContainer_} back to automatic
+     */
+    static RESIZER_SIZE=17;
     /**@type {(a:number,b:number)=>boolean}*/static[OperationType.GE](a,b){return a>=b;}
     /**@type {(a:number,b:number)=>boolean}*/static[OperationType.LE](a,b){return a<=b;}
     /**@type {(a:number,b:number)=>boolean}*/static[OperationType.GT](a,b){return a>b;}
@@ -232,33 +247,79 @@ const Roll=class Roll{
     /**@type {(a:number,b:number)=>boolean}*/static[OperationType.EQ](a,b){return a===b;}
     /**
      * ## Calculate probability of a {@linkcode dice} throw in relation to {@linkcode value} and {@linkcode operation}
-     * currently only supports 1 {@linkcode dice}
-     * @param {number} value
-     * @param {OperationType} operation
-     * @param {DiceType[]} dice
-     * @returns {number} percentage `[0,1]` or `NaN` if {@linkcode value} is `NaN` or {@linkcode dice} holds no dice
-     * @throws {SyntaxError} when {@linkcode operation} has invalid value
-     * @throws {RangeError} when {@linkcode dice} has too many elements
+     * as in `value <operation> dice_0 + dice_1 + ... + dice_n`\
+     * WARNING more than 5 {@linkcode dice} take a very noticeable amount of time ! as it increases exponentially with dice amount and multiplicative with face count of those dice\
+     * for example 5 d20 = 20*20*20*20*20 = 3'200'000 comparisons
+     * @param {number} value - number for comparing to the sum of all {@linkcode dice} in terms of probability to meet the condition with the given {@linkcode operation}
+     * @param {OperationType} operation - comparison operator for {@linkcode value} ({@linkcode OperationType})
+     * @param {readonly DiceType[]} dice - list of {@linkcode DiceType} (also supports dice with `[1..2^53[` (positive safe integer) max faces)
+     * @returns {number} percentage `[0,1]` or `NaN` if {@linkcode value} is `NaN` or {@linkcode dice} is empty or has non-supported dice
      */
     static Probability(value,operation,dice){
         if(dice.length==0||Number.isNaN(value))return NaN;
-        if(dice.length===1)switch(operation){
-            case OperationType.GE:return dice[0]===DiceType.D100?(value<10?0:value>=100?1:Math.trunc(value/10)/10):(value<1?0:value>=dice[0]?1:value/dice[0]);
-            case OperationType.LE:return dice[0]===DiceType.D100?(value<=10?1:value>100?0:(10-Math.trunc((value-1)/10))/10):(value<=1?1:value>dice[0]?0:(dice[0]-(value-1))/dice[0]);
-            case OperationType.GT:return dice[0]===DiceType.D100?(value<=10?0:value>100?1:Math.trunc((value-1)/10)/10):(value<=1?0:value>dice[0]?1:(value-1)/dice[0]);
-            case OperationType.LT:return dice[0]===DiceType.D100?(value<10?1:value>=100?0:(10-Math.trunc(value/10))/10):(value<1?1:value>=dice[0]?0:(dice[0]-value)/dice[0]);
-            case OperationType.EQ:return dice[0]===DiceType.D100?(value<10||value>100?0:value%10===0?.1:0):(value<1||value>dice[0]?0:1/dice[0]);
-            default:throw new SyntaxError("[Roll:Probability] operation has invalid value");
+        let diceMin=0,
+            diceMax=0;
+        for(const d of dice){
+            //~ early exit if not a (supported) dice
+            if(!Number.isSafeInteger(d)||d<1)return NaN;
+            diceMin+=d===DiceType.D100?10:1;
+            diceMax+=d;
         }
-        // TODO add more dice (calculate probability of multiple different dice)
-        throw new RangeError("[Roll:Probability] can't calculate probability of more than one dice");
+        //~ early exit if out of range (for specific operation) or single dice
+        switch(operation){
+            case OperationType.GE:
+                if(value<diceMin)return 0;
+                if(value>=diceMax)return 1;
+                if(dice.length===1)return dice[0]===DiceType.D100?Math.trunc(value/10)/10:value/dice[0];
+                break;
+            case OperationType.LE:
+                if(value>diceMax)return 0;
+                if(value<=diceMin)return 1;
+                if(dice.length===1)return dice[0]===DiceType.D100?(10-Math.trunc((value-1)/10))/10:(dice[0]-(value-1))/dice[0];
+                break;
+            case OperationType.GT:
+                if(value<=diceMin)return 0;
+                if(value>diceMax)return 1;
+                if(dice.length===1)return dice[0]===DiceType.D100?Math.trunc((value-1)/10)/10:(value-1)/dice[0];
+                break;
+            case OperationType.LT:
+                if(value>=diceMax)return 0;
+                if(value<diceMin)return 1;
+                if(dice.length===1)return dice[0]===DiceType.D100?(10-Math.trunc(value/10))/10:(dice[0]-value)/dice[0];
+                break;
+            case OperationType.EQ:
+                if(value<diceMin||value>diceMax)return 0;
+                if(dice.length===1)return dice[0]===DiceType.D100?(value%10===0?.1:0):1/dice[0];
+                break;
+            default:return NaN;
+        }
+        /**@type {number[]} index/face (-1) of each {@linkcode dice} with same index (except {@linkcode DiceType.D100} is `[0..9]` like {@linkcode DiceType.D10} not `{0,10,20,...,90}`)*/
+        const M=new Array(dice.length).fill(0);
+        let match=0,all=0;
+        //? number_of_iterations => dice.reduce((o,v)=>o*BigInt(v===DiceType.D100?10:v),1n)
+        do{
+            if(Roll[operation](value,M.reduce((o,v,i)=>o+(dice[i]===DiceType.D100?v*10+10:v+1),0)))++match;
+            ++all;
+            for(let i=0;i<M.length;++i){
+                if(++M[i]<(dice[i]===DiceType.D100?10:dice[i]))break;
+                M[i]=0;
+            }
+        }while(M.some(v=>v!==0));
+        return match/all;
     }
     /**
      * ## Format percentage number to a string (including % sign)
+     * padding with non-breaking-space (`0xa0`) so it's centered around the one's digit
      * @param {number} percent - `[0,1]` or `NaN`
-     * @returns {string} `0%` to `100%` up to 3 decimal places (rounded) or `--%` when {@linkcode percent} is `NaN`
+     * @returns {string} ` 0%` to `100%` up to {@linkcode Roll.PRINT_PRECISION} decimal places (rounded) or `--%` when {@linkcode percent} is `NaN`
      */
-    static FormatPercent(percent){return typeof percent!=="number"||Number.isNaN(percent)?"--%":((percent*100).toFixed(3).replace(/(\.\d*[1-9])0*$|\.0*$/,"$1")+"%");}
+    static FormatPercent(percent){
+        if(typeof percent!=="number"||Number.isNaN(percent))return"--%";
+        const n=(percent*100).toFixed(Roll.PRINT_PRECISION).replace(/(\.\d*[1-9])0*$|\.0*$/,"$1")+"%";
+        const[,l,r]=n.match(/^(\d*)\d((?:[\.e].+?)?%)$/);
+        if(l.length<=r.length)return"\xa0".repeat(r.length-l.length)+n;
+        return n+"\xa0".repeat(l.length-r.length);
+    }
     /**## [internal] get numeric value from {@linkcode Roll._value_} or `NaN` if invalid*/
     get _valueNum_(){return this._value_.checkValidity()?Number(this._value_.value):NaN}
     /**## [internal] Calculate success rate after dice roll and set {@linkcode Roll._diceContainer_} class*/
@@ -272,19 +333,19 @@ const Roll=class Roll{
         if(Number.isNaN(total))return;
         this._diceContainer_.classList.add(Roll[this._op_.value](num,total)?"success":"failure");
     }
-    /**## [internal] Update {@linkcode Roll.chance} via {@linkcode Roll.Probability}*/
-    _UpdateChance_(){
-        /**@type {DiceType[]}*/const dice=[];
-        this._dice_.forEach(v=>dice.push(v.type));
-        this.chance=Roll.Probability(this._valueNum_,this._op_.value,dice);
-        this._chance_.textContent=Roll.FormatPercent(this.chance);
-        this._CallbackChance_();
-    }
-    /**## [internal] Update {@linkcode Roll._diceContainer_} CSS `--width` and class and call {@linkcode Roll._UpdateChance_}*/
+    /**## [internal] Update {@linkcode Roll._diceContainer_} CSS `--width` & class and {@linkcode Roll.chance} via {@linkcode Roll.Probability}*/
     _UpdateRow_(){
         this._diceContainer_.style.setProperty("--width",String(Math.ceil(Math.sqrt(this._dice_.size))));
         this._UpdateClass_();
-        this._UpdateChance_();
+        clearTimeout(this._timeoutProbability_);
+        this._timeoutProbability_=setTimeout(()=>{
+            /**@type {DiceType[]}*/const dice=Array.from(this._dice_,v=>v.type);
+            const t=performance.now();
+            this.chance=Roll.Probability(this._valueNum_,this._op_.value,dice);
+            console.log("%cProbability calculation took %oms for %o dice.","color:#0a0;font-size:larger",Number((performance.now()-t).toFixed(Roll.PRINT_PRECISION)),dice);
+            this._chance_.textContent=Roll.FormatPercent(this.chance);
+            this._CallbackChance_();
+        },2);
     }
     /**
      * ## [internal] Remove {@linkcode dice} from collection and call {@linkcode Roll._UpdateRow_}
@@ -322,6 +383,8 @@ const Roll=class Roll{
         this.chance=NaN;
         /**@type {Set<Dice>} [internal] collection of {@linkcode Dice} in {@linkcode Roll._diceContainer_}*/
         this._dice_=new Set();
+        /**@type {number} [internal] timeout id to delay call to {@linkcode Roll.Probability} in {@linkcode Roll._UpdateRow_}*/
+        this._timeoutProbability_=NaN;
         /**@type {CSSStyleDeclaration} [internal] live style declarations of {@linkcode Roll._diceContainer_}*/
         this._diceContainerStyle_=getComputedStyle(this._diceContainer_);
         this._name_.addEventListener("blur",()=>{
@@ -341,19 +404,18 @@ const Roll=class Roll{
             this.RollAll();
         },{passive:false});
         this._op_.addEventListener("change",()=>this._UpdateRow_(),{passive:true});
-        this._add_.addEventListener("click",()=>{
-            this.AddDice(Number(this._addSelect_.value));
-            this._UpdateRow_();
-        },{passive:true});
+        this._add_.addEventListener("click",()=>this.AddDice(Number(this._addSelect_.value)),{passive:true});
         this._diceContainer_.addEventListener("dblclick",ev=>{
             if(ev.target!==this._diceContainer_)return;
-            const bounds=this._diceContainer_.getBoundingClientRect();
-            const offsetLeft=Math.trunc(bounds.right-Number.parseFloat(this._diceContainerStyle_.borderRightWidth)-ev.x);
-            const offsetBottom=Math.trunc(bounds.bottom-Number.parseFloat(this._diceContainerStyle_.borderBottomWidth)-ev.y);
-            if(offsetLeft<=0||offsetLeft>17||offsetBottom<=0||offsetBottom>17)return;
             ev.preventDefault();
-            this._diceContainer_.style.removeProperty("width");
-            this._diceContainer_.style.removeProperty("height");
+            const{right,bottom}=this._diceContainer_.getBoundingClientRect();
+            const offsetRight=Math.trunc(right-Number.parseFloat(this._diceContainerStyle_.borderRightWidth)-ev.x);
+            const offsetBottom=Math.trunc(bottom-Number.parseFloat(this._diceContainerStyle_.borderBottomWidth)-ev.y);
+            if(offsetRight>=0&&offsetRight<=Roll.RESIZER_SIZE&&offsetBottom>=0&&offsetBottom<=Roll.RESIZER_SIZE){
+                this._diceContainer_.style.removeProperty("width");
+                this._diceContainer_.style.removeProperty("height");
+            }else if(this._dice_.size===0&&html.hover.dataset.toggle==="0")this.Remove();
+            else if(html.hover.dataset.toggle!=="0")this.RollAll();
         },{passive:false});
         /**@type {boolean} [internal] `true` when {@linkcode Roll.Remove} was called once*/
         this._rem_=false;
@@ -395,19 +457,18 @@ const Roll=class Roll{
             this.RollAll();
         });
         this._op_.removeEventListener("change",()=>this._UpdateRow_());
-        this._add_.removeEventListener("click",()=>{
-            this.AddDice(Number(this._addSelect_));
-            this._UpdateRow_();
-        });
+        this._add_.removeEventListener("click",()=>this.AddDice(Number(this._addSelect_.value)));
         this._diceContainer_.removeEventListener("dblclick",ev=>{
             if(ev.target!==this._diceContainer_)return;
-            const bounds=this._diceContainer_.getBoundingClientRect();
-            const offsetLeft=Math.trunc(bounds.right-Number.parseFloat(this._diceContainerStyle_.borderRightWidth)-ev.x);
-            const offsetBottom=Math.trunc(bounds.bottom-Number.parseFloat(this._diceContainerStyle_.borderBottomWidth)-ev.y);
-            if(offsetLeft<=0||offsetLeft>17||offsetBottom<=0||offsetBottom>17)return;
             ev.preventDefault();
-            this._diceContainer_.style.removeProperty("width");
-            this._diceContainer_.style.removeProperty("height");
+            const{right,bottom}=this._diceContainer_.getBoundingClientRect();
+            const offsetRight=Math.trunc(right-Number.parseFloat(this._diceContainerStyle_.borderRightWidth)-ev.x);
+            const offsetBottom=Math.trunc(bottom-Number.parseFloat(this._diceContainerStyle_.borderBottomWidth)-ev.y);
+            if(offsetRight>=0&&offsetRight<=Roll.RESIZER_SIZE&&offsetBottom>=0&&offsetBottom<=Roll.RESIZER_SIZE){
+                this._diceContainer_.style.removeProperty("width");
+                this._diceContainer_.style.removeProperty("height");
+            }else if(this._dice_.size===0&&html.hover.dataset.toggle==="0")this.Remove();
+            else if(html.hover.dataset.toggle!=="0")this.RollAll();
         });
         this._dice_.forEach(v=>v.Remove());
         this.html.remove();
@@ -466,8 +527,8 @@ html.roll.addEventListener("click",()=>rolls.forEach(v=>v.RollAll()),{passive:tr
 window.addEventListener("resize",()=>void html.box.classList.toggle("rows",window.innerWidth<window.innerHeight),{passive:true});
 window.dispatchEvent(new UIEvent("resize"));
 
-if(location.search.length!==0){
-    const[,d]=location.search.match(/^\?(c|d(?:[468]|1(?:2|00?)|20))$/i)??[];
+if(location.hash.length!==0){
+    const[,d]=location.hash.match(/^#(c|d(?:[468]|1(?:2|00?)|20))$/i)??[];
     if(d!=null){
         html.add.click();
         /**@type {Roll}*/const r=rolls.values().next().value;
@@ -475,6 +536,6 @@ if(location.search.length!==0){
         r.RollAll();
         r._value_.focus();
     }
-}
+}else html.add.focus();
 //~ remove search & hash from URL
 history.replaceState(null,"",location.href.replace(/[?#].*$/,""));
