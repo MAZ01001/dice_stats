@@ -133,8 +133,11 @@ const Dice=class Dice{
         if((ev instanceof KeyboardEvent)&&ev.key!==" "&&ev.key!=="Enter")return;
         ev.preventDefault();
         if((ev instanceof KeyboardEvent)&&ev.repeat)return;
-        if(html.hover.dataset.toggle==="1")this.Roll();
-        else if(ev.type!=="mouseenter")this.Remove();
+        switch(html.hover.dataset.state){
+            case"0":if(ev.type!=="mouseenter")this.Remove();break;
+            case"1":if(ev.type!=="mouseenter")this.Roll();break;
+            case"2":this.Roll();break;
+        }
     }
     /**
      * ## [internal] Called from {@linkcode Dice.Roll} when animation finishes
@@ -309,17 +312,10 @@ const Roll=class Roll{
     }
     /**
      * ## Format percentage number to a string (including % sign)
-     * padding with non-breaking-space (`0xa0`) so it's centered around the one's digit
      * @param {number} percent - `[0,1]` or `NaN`
-     * @returns {string} ` 0%` to `100%` up to {@linkcode Roll.PRINT_PRECISION} decimal places (rounded) or `--%` when {@linkcode percent} is `NaN`
+     * @returns {string} `0%` to `100%` up to {@linkcode Roll.PRINT_PRECISION} decimal places (rounded) or `--%` when {@linkcode percent} is `NaN`
      */
-    static FormatPercent(percent){
-        if(typeof percent!=="number"||Number.isNaN(percent))return"--%";
-        const n=(percent*100).toFixed(Roll.PRINT_PRECISION).replace(/(\.\d*[1-9])0*$|\.0*$/,"$1")+"%";
-        const[,l,r]=n.match(/^(\d*)\d((?:[\.e].+?)?%)$/);
-        if(l.length<=r.length)return"\xa0".repeat(r.length-l.length)+n;
-        return n+"\xa0".repeat(l.length-r.length);
-    }
+    static FormatPercent(percent){return Number.isNaN(percent)?"--%":(percent*100).toFixed(Roll.PRINT_PRECISION).replace(/(\.\d*[1-9])0*$|\.0*$/,"$1")+"%";}
     /**## [internal] get numeric value from {@linkcode Roll._value_} or `NaN` if invalid*/
     get _valueNum_(){return this._value_.checkValidity()?Number(this._value_.value):NaN}
     /**## [internal] Calculate success rate after dice roll and set {@linkcode Roll._diceContainer_} class*/
@@ -414,8 +410,21 @@ const Roll=class Roll{
             if(offsetRight>=0&&offsetRight<=Roll.RESIZER_SIZE&&offsetBottom>=0&&offsetBottom<=Roll.RESIZER_SIZE){
                 this._diceContainer_.style.removeProperty("width");
                 this._diceContainer_.style.removeProperty("height");
-            }else if(this._dice_.size===0&&html.hover.dataset.toggle==="0")this.Remove();
-            else if(html.hover.dataset.toggle!=="0")this.RollAll();
+            }else if(this._dice_.size===0&&html.hover.dataset.state==="0")this.Remove();
+            else if(html.hover.dataset.state!=="0")this.RollAll();
+        },{passive:false});
+        this._diceContainer_.addEventListener("touchmove",ev=>{
+            if(html.hover.dataset.state!=="2")return;
+            ev.preventDefault();
+            const{clientX,clientY}=ev.touches[0];
+            for(const dice of this._dice_){
+                const{left,right,top,bottom}=dice.html.getBoundingClientRect();
+                if(
+                    !Number.isNaN(dice.num)
+                    &&clientX>left&&clientX<right
+                    &&clientY>top&&clientY<bottom
+                )dice.Roll();
+            }
         },{passive:false});
         /**@type {boolean} [internal] `true` when {@linkcode Roll.Remove} was called once*/
         this._rem_=false;
@@ -467,8 +476,21 @@ const Roll=class Roll{
             if(offsetRight>=0&&offsetRight<=Roll.RESIZER_SIZE&&offsetBottom>=0&&offsetBottom<=Roll.RESIZER_SIZE){
                 this._diceContainer_.style.removeProperty("width");
                 this._diceContainer_.style.removeProperty("height");
-            }else if(this._dice_.size===0&&html.hover.dataset.toggle==="0")this.Remove();
-            else if(html.hover.dataset.toggle!=="0")this.RollAll();
+            }else if(this._dice_.size===0&&html.hover.dataset.state==="0")this.Remove();
+            else if(html.hover.dataset.state!=="0")this.RollAll();
+        });
+        this._diceContainer_.removeEventListener("touchmove",ev=>{
+            if(html.hover.dataset.state!=="2")return;
+            ev.preventDefault();
+            const{clientX,clientY}=ev.touches[0];
+            for(const dice of this._dice_){
+                const{left,right,top,bottom}=dice.html.getBoundingClientRect();
+                if(
+                    !Number.isNaN(dice.num)
+                    &&clientX>left&&clientX<right
+                    &&clientY>top&&clientY<bottom
+                )dice.Roll();
+            }
         });
         this._dice_.forEach(v=>v.Remove());
         this.html.remove();
@@ -514,12 +536,19 @@ html.add.addEventListener("click",()=>{
     CalcChance();
 },{passive:true});
 html.hover.addEventListener("click",()=>{
-    if(html.hover.dataset.toggle==="0"){
-        html.hover.dataset.toggle="1";
-        html.hover.value="Point to rotate";
-    }else{
-        html.hover.dataset.toggle="0";
-        html.hover.value="Click to remove";
+    switch(html.hover.dataset.state){
+        case"0":
+            html.hover.dataset.state="1";
+            html.hover.value="Click to rotate";
+            break;
+        case"1":
+            html.hover.dataset.state="2";
+            html.hover.value="Swipe to rotate";
+            break;
+        case"2":
+            html.hover.dataset.state="0";
+            html.hover.value="Click to remove";
+            break;
     }
 },{passive:true});
 html.roll.addEventListener("click",()=>rolls.forEach(v=>v.RollAll()),{passive:true});
