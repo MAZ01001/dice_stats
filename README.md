@@ -21,7 +21,7 @@ DND dice rolls and statistics (success chance)
    - Dice will turn green when their entire block meets its condition and red if it fails.
    - The border of the entire viewing rectangle will turn green when all blocks/dice throws succeed, and red if not.
    - _The border/dice color will remain grey if not all dice where rolled or not all `Value` fields are valid (ie. empty)_.
-4. You can also toggle the colored button at the bottom from <kbd>Click to remove</kbd> (red) to <kbd>Point to rotate</kbd> (green) for automatic dice rolling by just moving the mouse over the dice (or clicking on them / double-clicking on area beneath them).
+4. You can also toggle the colored button at the bottom from <kbd>Click to remove</kbd> (red) to <kbd>Click to rotate</kbd> (green) or <kbd>Swipe to rotate</kbd> (orange) for rolling dice by clicking (double-clicking on area beneath them will roll all of that block at once) or moving the mouse over the dice.
 
 The percentages within each block show how likely it is for any given roll to succeed its condition and at the bottom of the page is the total chance of success over all rolls.
 
