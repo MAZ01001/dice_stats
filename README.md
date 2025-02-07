@@ -29,22 +29,20 @@ Buttons at the bottom of the view box:
    <tr>
       <td><kbd style="background-color:#800;color:#ff0">Click&nbsp;to&nbsp;remove</kbd></td>
       <td>
-         Switches between different modes for pointer action:
-         <br>
-         <fieldset><legend><kbd style="background-color:#800;color:#ff0">Click&nbsp;to&nbsp;remove</kbd></legend>
-            Click on dice to remove them; Double click on the empty dice area to remove the whole block.
-         </fieldset>
-         <br>
-         <fieldset><legend><kbd style="background-color:#040;color:#0f0">Click&nbsp;to&nbsp;rotate</kbd></legend>
-            Click on dice to roll them (individually); Double click on the block or the dice area within it to roll all dice within that.
-         </fieldset>
-         <br>
-         <fieldset><legend><kbd style="background-color:#630;color:#ff0">Swipe&nbsp;to&nbsp;rotate</kbd></legend>
-            Same as <kbd style="background-color:#040;color:#0f0">Click&nbsp;to&nbsp;rotate</kbd>, but also moving the mouse over dice rolls them (individually);<br>
-            For touch start a swipe on a dice graphic and then moving over any dice on the screen rolls them (individually),<br>
-            to scroll the page by swiping over dice simply start swiping, then tap anywhere with a second finger,<br>
-            and it should cancel the "dice rolling" and revert back to normal swipe controls.
-         </fieldset>
+         <p>Switches between different modes for pointer action:</p>
+         <dl>
+            <dt><kbd style="background-color:#800;color:#ff0">Click&nbsp;to&nbsp;remove</kbd></dt>
+            <dd>Click on dice to remove them; Double click on the empty dice area to remove the whole block.</dd>
+            <dt><kbd style="background-color:#040;color:#0f0">Click&nbsp;to&nbsp;rotate</kbd></dt>
+            <dd>Click on dice to roll them (individually); Double click on the block or the dice area within it to roll all dice within that.</dd>
+            <dt><kbd style="background-color:#630;color:#ff0">Swipe&nbsp;to&nbsp;rotate</kbd></dt>
+            <dd>
+               Same as <kbd style="background-color:#040;color:#0f0">Click&nbsp;to&nbsp;rotate</kbd>, but also moving the mouse over dice rolls them (individually);
+               For touch start a swipe on a dice graphic and then moving over any dice on the screen rolls them (individually),
+               to scroll the page by swiping over dice simply start swiping, then tap anywhere with a second finger,
+               and it should cancel the "dice rolling" and revert back to normal swipe controls.
+            </dd>
+         </dl>
       </td>
    </tr>
    <tr><td><i>Source Code</i></td>      <td>Link to this Repository.</td></tr>
@@ -65,20 +63,20 @@ Within each block:
    <tr><td><kbd>Add</kbd></td>         <td>Adds a new (<kbd>D20</kbd>) dice to this block; Currently 48 dice maximum per block.</td></tr>
    <tr>
       <td><kbd>D20</kbd></td>
-      <td>
-         Select the dice to add with <kbd>Add</kbd>; Currently supported dice are:
-         <table>
-            <tr><th>Name</th>           <th>Description</th>      <th>Possible results</th></tr>
-            <tr><td><kbd>C</kbd></td>   <td>Two sided coin</td>   <td><code>{1, 2}</code></td></tr>
-            <tr><td><kbd>D4</kbd></td>  <td>Four sided dice</td>  <td><code>{1, 2, 3, 4}</code></td></tr>
-            <tr><td><kbd>D6</kbd></td>  <td>Six sided dice</td>   <td><code>{1, 2, ..., 6}</code></td></tr>
-            <tr><td><kbd>D8</kbd></td>  <td>Eight sided dice</td> <td><code>{1, 2, ..., 8}</code></td></tr>
-            <tr><td><kbd>D10</kbd></td> <td>Ten sided dice</td>   <td><code>{1, 2, ..., 10}</code></td></tr>
-            <tr><td><kbd>D12</kbd></td> <td>Twelve sided dice</td><td><code>{1, 2, ..., 12}</code></td></tr>
-            <tr><td><kbd>D20</kbd></td> <td>Twenty sided dice</td><td><code>{1, 2, ..., 20}</code></td></tr>
-            <tr><td><kbd>D100</kbd></td><td>Ten sided dice</td>   <td><code>{10, 20, ..., 100}</code></td></tr>
-         </table>
-      </td>
+      <td><p>Select the dice to add with <kbd>Add</kbd>; Currently supported dice are:</p>
+
+   | Name            | Description       | Possible results     |
+   | --------------- | ----------------- | -------------------- |
+   | <kbd>C</kbd>    | Two sided coin    | `{1, 2}`             |
+   | <kbd>D4</kbd>   | Four sided dice   | `{1, 2, 3, 4}`       |
+   | <kbd>D6</kbd>   | Six sided dice    | `{1, 2, ..., 6}`     |
+   | <kbd>D8</kbd>   | Eight sided dice  | `{1, 2, ..., 8}`     |
+   | <kbd>D10</kbd>  | Ten sided dice    | `{1, 2, ..., 10}`    |
+   | <kbd>D12</kbd>  | Twelve sided dice | `{1, 2, ..., 12}`    |
+   | <kbd>D20</kbd>  | Twenty sided dice | `{1, 2, ..., 20}`    |
+   | <kbd>D100</kbd> | Ten sided dice    | `{10, 20, ..., 100}` |
+
+   </td>
    </tr>
 </table>
 
@@ -93,13 +91,12 @@ The layout changes to a column with rows instead of rows with blocks when the sc
 
 Inside the browser dev console, some limits can be adjusted:
 
-<table>
-   <tr><th>Variable</th>                         <th>Description</th>                                             <th>Default</th><th>Limit</th></tr>
-   <tr><td><code>Dice.ANIM_TIME</code></td>      <td>Animation speed of dice rolls in milliseconds</td>           <td>1000</td>   <td>&lbrack;0,&infin;&lbrack;</td></tr>
-   <tr><td><code>Roll.PRINT_PRECISION</code></td><td>Number of decimal places for percentages (only visually)</td><td>5</td>      <td>&lbrack;0..20&rbrack;</td></tr>
-   <tr><td><code>Roll.MAX_DICE</code></td>       <td>Maximum amount of dice per block</td>                        <td>48</td>     <td>&lbrack;0..90071992547409&rbrack;</td></tr>
-   <tr><td><code>MAX_ROLLLS</code></td>          <td>Maximum amount of blocks</td>                                <td>100</td>    <td>&lbrack;0..2<sup>53</sup>&lbrack;</td></tr>
-</table>
+| Variable               | Description                                              | Default | Limit                             |
+| ---------------------- | -------------------------------------------------------- | ------- | --------------------------------- |
+| `Dice.ANIM_TIME`       | Animation speed of dice rolls in milliseconds            | 1000    | &lbrack;0,&infin;&lbrack;         |
+| `Roll.PRINT_PRECISION` | Number of decimal places for percentages (only visually) | 5       | &lbrack;0..20&rbrack;             |
+| `Roll.MAX_DICE`        | Maximum amount of dice per block                         | 48      | &lbrack;0..90071992547409&rbrack; |
+| `MAX_ROLLLS`           | Maximum amount of blocks                                 | 100     | &lbrack;0..2<sup>53</sup>&lbrack; |
 
 Also you can generate a number based on a dice type like so:
 
