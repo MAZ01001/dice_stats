@@ -113,10 +113,10 @@ div#sheet>div.throw>div.dice{
     min-width: 130px;
     min-height: 110px;
     width: calc(var(--width,1) * 100px + 30px);
-    /* BUG jittering when resizing due to dynamic layout */
+    /* BUG jittering when resizing due to dynamic layout with multiple boxes */
     resize: both;
-    max-width: 830px;
-    max-height: 350px;
+    max-width: 730px;
+    max-height: 450px;
     overflow: auto;
     scrollbar-gutter: stable both-edges;
 }
@@ -186,3 +186,11 @@ div#box.rows>div#sheet>div.throw>div.end{
 div#box.rows>div#sheet>div.throw>div.end{flex-direction: column-reverse;}
 div#box.rows>div#nav{display: grid;}
 div#box.rows>div#nav>a{grid-area: 2/1/3/3;}
+/* --------------------------------------------------------- */
+div#box:not(.rows)>div#sheet>div.throw>div.start>div.head::after,
+div#box.rows>div#sheet>div.throw>div.start::after{
+    display: block;
+    content: attr(data-sum);
+    font-size: large;
+    color: #0a0;
+}
