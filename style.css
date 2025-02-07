@@ -69,7 +69,8 @@ div#box.failure{border-color: #f00;}
 div#sheet{
     display: flex;
     flex-flow: wrap;
-    place-content: safe center;
+    align-content: safe center;
+    justify-content: space-evenly;
     place-items: safe center;
     gap: 2px;
 }
