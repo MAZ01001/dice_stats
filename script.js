@@ -71,7 +71,7 @@ const RNG=class RNG{
 /**Random number generator for dice rolls (init every page load)*/
 const rng=new RNG();
 
-/**@enum {number}*/
+/**@enum {number|Readonly<{max:number,step:number,faces:number}>}*/
 const DiceType=Object.freeze({
     C:2,
     D4:4,
@@ -80,15 +80,15 @@ const DiceType=Object.freeze({
     D10:10,
     D12:12,
     D20:20,
-    D100:100,
+    D100:Object.freeze({max:100,step:10,faces:10}),
 });
-/**@enum {string}*/
+/**@enum {(v:number,d:number)=>boolean}*/
 const OperationType=Object.freeze({
-    GE:"ge",
-    LE:"le",
-    GT:"gt",
-    LT:"lt",
-    EQ:"eq",
+    GE:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v>=d,
+    LE:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v<=d,
+    GT:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v>d,
+    LT:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v<d,
+    EQ:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v===d,
 });
 
 const html=Object.freeze({
@@ -101,29 +101,71 @@ const html=Object.freeze({
     /**@type {HTMLTemplateElement}*/dice:document.getElementById("dice"),
     /**@type {HTMLTemplateElement}*/throw:document.getElementById("throw"),
 });
+/**@type {Map<SVGElement,Dice>} maps any {@linkcode SVGElement} to their respective {@linkcode Dice} object*/
+const diceLookup=new Map();
 
 /**
  * ## Class for creating dice
- * uses {@linkcode DiceType}, {@linkcode rng}, {@linkcode html.hover}, and {@linkcode html.dice} internally
+ * uses {@linkcode DiceType}, {@linkcode rng}, {@linkcode html.hover}, {@linkcode html.dice}, and {@linkcode diceLookup} internally
  */
 const Dice=class Dice{
-    static ANIM_TIME=1000;
-    static ANIM_FLIP=Object.freeze({rotate:["0turn 1 0 0","2turn 1 0 0"]});
-    static ANIM_TURN=Object.freeze({rotate:["0turn 0 1 0","2turn 0 1 0"]});
-    static ANIM_ROLL=Object.freeze({rotate:["0turn 0 0 1","2turn 0 0 1"]});
-    static ANIM_TEXT=Object.freeze({opacity:[0,0,1],offset:[0,.7,1]});
-    static ANIM_DICE_CONF=Object.freeze({id:"dice",duration:Dice.ANIM_TIME,easing:"ease-out"});
-    static ANIM_TEXT_CONF=Object.freeze({id:"dice",duration:Dice.ANIM_TIME,easing:"linear"});
-    static TIMEOUT_DELAY=Dice.ANIM_TIME*.7;
-    //~ [1..max] ← 1 + floor(rng32bit * max / 2^32)
-    static get[DiceType.C](){return rng.val32<0x80000000?1:2;}
-    static get[DiceType.D4](){return 1+Math.trunc(rng.val32/0x40000000);}
-    static get[DiceType.D6](){return 1+Math.trunc(rng.val32*3/0x80000000);}
-    static get[DiceType.D8](){return 1+Math.trunc(rng.val32/0x20000000);}
-    static get[DiceType.D10](){return 1+Math.trunc(rng.val32*5/0x80000000);}
-    static get[DiceType.D12](){return 1+Math.trunc(rng.val32*3/0x40000000);}
-    static get[DiceType.D20](){return 1+Math.trunc(rng.val32*5/0x40000000);}
-    static get[DiceType.D100](){return 10+10*Math.trunc(rng.val32*5/0x80000000);}
+    static _ANIM_TIME_=1000;
+    static _ANIM_FLIP_=Object.freeze({rotate:["0turn 1 0 0","2turn 1 0 0"]});
+    static _ANIM_TURN_=Object.freeze({rotate:["0turn 0 1 0","2turn 0 1 0"]});
+    static _ANIM_ROLL_=Object.freeze({rotate:["0turn 0 0 1","2turn 0 0 1"]});
+    static _ANIM_TEXT_=Object.freeze({opacity:[0,0,1],offset:[0,.7,1]});
+    static _ANIM_DICE_CONF_=Object.freeze({id:"dice",duration:Dice._ANIM_TIME_,easing:"ease-out"});
+    static _ANIM_TEXT_CONF_=Object.freeze({id:"dice",duration:Dice._ANIM_TIME_,easing:"linear"});
+    static _TIMEOUT_DELAY_=Dice._ANIM_TIME_*.7;
+    /**
+     * ## [getter] Get dice roll animation duration
+     * @returns {number} current animation duration in milliseconds
+     */
+    static get ANIM_TIME(){return Dice._ANIM_TIME_;}
+    /**
+     * ## [setter] Change dice roll animation duration
+     * @param {number} ms - time in milliseconds for dice animation - default is `1000`
+     * @throws {TypeError} if {@linkcode ms} is not a number
+     * @throws {RangeError} if {@linkcode ms} is negative or `Infinity`
+     */
+    static set ANIM_TIME(ms){
+        if(typeof ms!=="number")throw new TypeError("[Dice:ANIM_TIME:set] ms is not a number.");
+        if(ms<0||ms===Infinity)throw new RangeError("[Dice:ANIM_TIME:set] ms can't be negative or Infinity.");
+        Dice._ANIM_TIME_=ms;
+        Dice._ANIM_DICE_CONF_=Object.freeze({id:"dice",duration:Dice._ANIM_TIME_,easing:"ease-out"});
+        Dice._ANIM_TEXT_CONF_=Object.freeze({id:"dice",duration:Dice._ANIM_TIME_,easing:"linear"});
+        Dice._TIMEOUT_DELAY_=Dice._ANIM_TIME_*.7;
+        for(const[_,dice]of diceLookup){
+            dice._useAnim_=dice._dice_.animate(dice.type===DiceType.C?Dice._ANIM_FLIP_:(dice.type===DiceType.D4||dice.type===DiceType.D10||dice.type===DiceType.D100)?Dice._ANIM_TURN_:Dice._ANIM_ROLL_,Dice._ANIM_DICE_CONF_);
+            dice._textAnim_=dice._text_.animate(Dice._ANIM_TEXT_,Dice._ANIM_TEXT_CONF_);
+            dice._useAnim_.finish();
+            dice._textAnim_.finish();
+        }
+    }
+    /**
+     * ## Calculates a random number for the given {@linkcode diceType}
+     * @param {DiceType} diceType - dice type to set random number range
+     * @returns {number} random integer in {@linkcode diceType} range
+     * @throws {TypeError} if {@linkcode diceType} is invalid (type/value)
+     */
+    static RNG(diceType){
+        switch(diceType){
+            case DiceType.C:return rng.val32<0x80000000?1:2;
+            case DiceType.D4:return 1+Math.trunc(rng.val32/0x40000000);
+            case DiceType.D6:return 1+Math.trunc(rng.val32*3/0x80000000);
+            case DiceType.D8:return 1+Math.trunc(rng.val32/0x20000000);
+            case DiceType.D10:return 1+Math.trunc(rng.val32*5/0x80000000);
+            case DiceType.D12:return 1+Math.trunc(rng.val32*3/0x40000000);
+            case DiceType.D20:return 1+Math.trunc(rng.val32*5/0x40000000);
+            case DiceType.D100:return 10+10*Math.trunc(rng.val32*5/0x80000000);
+        }
+        if(typeof diceType==="number")return 1+Math.trunc(rng.val32*diceType/0x100000000);
+        if(
+            Number.isSafeInteger(diceType.faces)&&diceType.faces>0
+            &&Number.isSafeInteger(diceType.step)&&diceType.step>0
+        )return diceType.step+diceType.step*Math.trunc(rng.val32*diceType.faces/0x100000000);
+        throw new TypeError("[Dice:RNG] diceType has invalid type or value.");
+    }
     /**
      * ## [interanl] Event listener callback on {@linkcode Dice.prototype.html}
      * non-passive | can call {@linkcode Event.preventDefault}
@@ -144,11 +186,12 @@ const Dice=class Dice{
      * puts the text on the dice and calls the {@linkcode callback} (given the constructor at init)
      */
     _Timeout_(){
-        this._text_.textContent=String(this.num=Dice[this.type]);
+        this._text_.textContent=String(this.num=Dice.RNG(this.type));
         this._CallbackRollEnd_();
     }
     /**
      * ## Create a new {@linkcode Dice} object
+     * adds itself to {@linkcode diceLookup}
      * @param {DiceType} type - dice type
      * @param {HTMLElement} container - HTML container for this dice
      * @param {()=>void} CallbackRoll - called for every dice roll (start of the roll animation - might be called more often than {@linkcode CallbackRollEnd})
@@ -179,17 +222,18 @@ const Dice=class Dice{
         this.html.addEventListener("mouseenter",ev=>this._PointerHandler_(ev),{passive:false});
         this.html.addEventListener("keydown",ev=>this._PointerHandler_(ev),{passive:false});
         /**@type {DiceType} the type of dice*/this.type=type;
-        /**@type {number} current number rolled (`NaN` initially and during rolls)*/this.num=NaN;
+        /**@type {number|null} current number rolled (`null` initially and `NaN` during rolls)*/this.num=null;
         /**@type {()=>void}*/this._CallbackRoll_=CallbackRoll;
         /**@type {()=>void}*/this._CallbackRollEnd_=CallbackRollEnd;
         /**@type {(dice:Dice)=>void}*/this._CallbackRemove_=CallbackRemove;
         /**@type {number}*/this._timeoutID_=NaN;
-        /**@type {Animation}*/this._useAnim_=this._dice_.animate(type===DiceType.C?Dice.ANIM_FLIP:(type===DiceType.D4||type===DiceType.D10||type===DiceType.D100)?Dice.ANIM_TURN:Dice.ANIM_ROLL,Dice.ANIM_DICE_CONF);
-        /**@type {Animation}*/this._textAnim_=this._text_.animate(Dice.ANIM_TEXT,Dice.ANIM_TEXT_CONF);
+        /**@type {Animation}*/this._useAnim_=this._dice_.animate(type===DiceType.C?Dice._ANIM_FLIP_:(type===DiceType.D4||type===DiceType.D10||type===DiceType.D100)?Dice._ANIM_TURN_:Dice._ANIM_ROLL_,Dice._ANIM_DICE_CONF_);
+        /**@type {Animation}*/this._textAnim_=this._text_.animate(Dice._ANIM_TEXT_,Dice._ANIM_TEXT_CONF_);
         this._useAnim_.finish();
         this._textAnim_.finish();
         /**@type {boolean} [internal] `true` when {@linkcode Dice.Remove} was called once*/
         this._rem_=false;
+        diceLookup.set(this.html,this);
     }
     /**
      * ## Generate Random number, animate dice roll, and display result
@@ -203,12 +247,13 @@ const Dice=class Dice{
         this._text_.textContent="";
         this._useAnim_.play();
         this._textAnim_.play();
-        this._timeoutID_=setTimeout(()=>this._Timeout_(),Dice.TIMEOUT_DELAY);
+        this._timeoutID_=setTimeout(()=>this._Timeout_(),Dice._TIMEOUT_DELAY_);
         this._CallbackRoll_();
     }
     /**
      * ## Remove all event listeners and {@linkcode Dice.html} from DOM
-     * use before deleting obj
+     * use before deleting obj; removes itself from {@linkcode diceLookup}\
+     * also focuses next or previous html element (dice) if present
      */
     Remove(){
         if(this._rem_)return;
@@ -216,22 +261,78 @@ const Dice=class Dice{
         this.html.removeEventListener("click",ev=>this._PointerHandler_(ev));
         this.html.removeEventListener("mouseenter",ev=>this._PointerHandler_(ev));
         this.html.removeEventListener("keydown",ev=>this._PointerHandler_(ev));
+        if(this.html.nextElementSibling!=null)this.html.nextElementSibling.focus();
+        else if(this.html.previousElementSibling!=null)this.html.previousElementSibling.focus();
+        diceLookup.delete(this.html);
         this.html.remove();
         this._CallbackRemove_(this);
     }
 };
 
 /**
+ * ## Class for creating probability tables
+ * uses {@linkcode DiceType} internally
+ */
+const Probability=class Probability{
+    /**## Create a new (empty) {@linkcode Probability} object*/
+    constructor(){
+        /**@type {readonly[number[],number[]]} [internal] probability table*/
+        this._diceSums_=Object.freeze([[],[]]);
+        /**@type {number} [internal] index of final probability row in {@linkcode Probability._diceSums_}*/
+        this._diceSumIndex_=0;
+        /**@type {number} [internal] sum of all values in final row of {@linkcode Probability._diceSums_}*/
+        this._diceSumMax_=0;
+    }
+    /**
+     * ## Populate internal probability table
+     * @param {readonly DiceType[]} dice - list of dice (`number` => `{1, 2, ..., N}`; obj => `{1*STEP, 2*STEP, ..., MAX}`)
+     */
+    Setup(dice){
+        if(dice.length>0){
+            this._diceSums_[0][0]=1;
+            this._diceSums_[0].length=1;
+        }else this._diceSums_[0].length=0;
+        /**@type {number}*/const diceMax=dice.reduce((o,v)=>o+(typeof v==="number"?v:v.max),0);
+        for(let i=0,sum=NaN,face=NaN;i<dice.length;++i){
+            const a=i&1,b=(i+1)&1;
+            this._diceSums_[b].length=0;
+            const d=dice[i];
+            /**@type {number}*/const diceFaceMax=typeof d==="number"?d:d.max;
+            /**@type {number}*/const diceFaceSteps=typeof d==="number"?1:d.step;
+            for(sum=0;sum<=diceMax;++sum)
+                for(face=diceFaceSteps;face<=diceFaceMax;face+=diceFaceSteps){
+                    const faceSum=this._diceSums_[a][sum-face];
+                    if(faceSum>0)this._diceSums_[b][sum]=(this._diceSums_[b][sum]??0)+faceSum;
+                }
+        }
+        this._diceSums_[(dice.length+1)&1].length=0;
+        this._diceSumIndex_=dice.length&1;
+        this._diceSumMax_=this._diceSums_[this._diceSumIndex_].reduce((o,v)=>o+v,0);
+    }
+    /**
+     * ## Check if any {@linkcode value} matches the {@linkcode comparison} for all possible dice throws
+     * call {@linkcode Probability.Setup} first for specific dice setup
+     * @param {number} value - number to check against all possible dice throws set with {@linkcode Probability.Setup}
+     * @param {(value:number,diceSum:number)=>boolean} comparison - comparison function called with {@linkcode value} and a possible dice throw (sum of all dice rolled)
+     * @returns {number} the percent (`[0,1]`) chance of the {@linkcode value} matching the {@linkcode comparison} for any given dice throw (or `NaN` when {@linkcode value} is `NaN` or there are no dice)
+     */
+    Check(value,comparison){
+        if(Number.isNaN(value))return NaN;
+        return this._diceSums_[this._diceSumIndex_].reduce((o,v,i)=>comparison(value,i)?o+v:o,0)/this._diceSumMax_;
+    }
+};
+
+/**
  * ## Class for creating dice rolls
- * uses {@linkcode DiceType}, {@linkcode OperationType}, {@linkcode html.sheet}, {@linkcode html.hover}, {@linkcode html.throw}, and {@linkcode Dice} internally
+ * uses {@linkcode DiceType}, {@linkcode OperationType}, {@linkcode html.sheet}, {@linkcode html.hover}, {@linkcode html.throw}, {@linkcode Dice}, and {@linkcode Probability} internally
  */
 const Roll=class Roll{
     /**
      * ## Maximum amount of dice per block
-     * limited by reasonable compute time of {@linkcode Roll.Probability}
-     * keep in range `[1..2^53[` (positive safe integer)
+     * keep in range `[1..2^53[` (positive safe integer)\
+     * max for {@linkcode Probability.Setup} is `floor((2^53-1)/MAX_DICE_VALUE)` (here `90071992547409` since `100` is currently highest dice value)
      */
-    static MAX_DICE=5;
+    static MAX_DICE=48;
     /**
      * ## Maximum number of decimal places for {@linkcode Roll.FormatPercent}
      * only visual precision
@@ -243,73 +344,6 @@ const Roll=class Roll{
      * used to set the size of {@linkcode Roll._diceContainer_} back to automatic
      */
     static RESIZER_SIZE=17;
-    /**@type {(a:number,b:number)=>boolean}*/static[OperationType.GE](a,b){return a>=b;}
-    /**@type {(a:number,b:number)=>boolean}*/static[OperationType.LE](a,b){return a<=b;}
-    /**@type {(a:number,b:number)=>boolean}*/static[OperationType.GT](a,b){return a>b;}
-    /**@type {(a:number,b:number)=>boolean}*/static[OperationType.LT](a,b){return a<b;}
-    /**@type {(a:number,b:number)=>boolean}*/static[OperationType.EQ](a,b){return a===b;}
-    /**
-     * ## Calculate probability of a {@linkcode dice} throw in relation to {@linkcode value} and {@linkcode operation}
-     * as in `value <operation> dice_0 + dice_1 + ... + dice_n`\
-     * WARNING more than 5 {@linkcode dice} take a very noticeable amount of time ! as it increases exponentially with dice amount and multiplicative with face count of those dice\
-     * for example 5 d20 = 20*20*20*20*20 = 3'200'000 comparisons
-     * @param {number} value - number for comparing to the sum of all {@linkcode dice} in terms of probability to meet the condition with the given {@linkcode operation}
-     * @param {OperationType} operation - comparison operator for {@linkcode value} ({@linkcode OperationType})
-     * @param {readonly DiceType[]} dice - list of {@linkcode DiceType} (also supports dice with `[1..2^53[` (positive safe integer) max faces)
-     * @returns {number} percentage `[0,1]` or `NaN` if {@linkcode value} is `NaN` or {@linkcode dice} is empty or has non-supported dice
-     */
-    static Probability(value,operation,dice){
-        if(dice.length==0||Number.isNaN(value))return NaN;
-        let diceMin=0,
-            diceMax=0;
-        for(const d of dice){
-            //~ early exit if not a (supported) dice
-            if(!Number.isSafeInteger(d)||d<1)return NaN;
-            diceMin+=d===DiceType.D100?10:1;
-            diceMax+=d;
-        }
-        //~ early exit if out of range (for specific operation) or single dice
-        switch(operation){
-            case OperationType.GE:
-                if(value<diceMin)return 0;
-                if(value>=diceMax)return 1;
-                if(dice.length===1)return dice[0]===DiceType.D100?Math.trunc(value/10)/10:value/dice[0];
-                break;
-            case OperationType.LE:
-                if(value>diceMax)return 0;
-                if(value<=diceMin)return 1;
-                if(dice.length===1)return dice[0]===DiceType.D100?(10-Math.trunc((value-1)/10))/10:(dice[0]-(value-1))/dice[0];
-                break;
-            case OperationType.GT:
-                if(value<=diceMin)return 0;
-                if(value>diceMax)return 1;
-                if(dice.length===1)return dice[0]===DiceType.D100?Math.trunc((value-1)/10)/10:(value-1)/dice[0];
-                break;
-            case OperationType.LT:
-                if(value>=diceMax)return 0;
-                if(value<diceMin)return 1;
-                if(dice.length===1)return dice[0]===DiceType.D100?(10-Math.trunc(value/10))/10:(dice[0]-value)/dice[0];
-                break;
-            case OperationType.EQ:
-                if(value<diceMin||value>diceMax)return 0;
-                if(dice.length===1)return dice[0]===DiceType.D100?(value%10===0?.1:0):1/dice[0];
-                break;
-            default:return NaN;
-        }
-        /**@type {number[]} index/face (-1) of each {@linkcode dice} with same index (except {@linkcode DiceType.D100} is `[0..9]` like {@linkcode DiceType.D10} not `{0,10,20,...,90}`)*/
-        const M=new Array(dice.length).fill(0);
-        let match=0,all=0;
-        //? number_of_iterations => dice.reduce((o,v)=>o*BigInt(v===DiceType.D100?10:v),1n)
-        do{
-            if(Roll[operation](value,M.reduce((o,v,i)=>o+(dice[i]===DiceType.D100?v*10+10:v+1),0)))++match;
-            ++all;
-            for(let i=0;i<M.length;++i){
-                if(++M[i]<(dice[i]===DiceType.D100?10:dice[i]))break;
-                M[i]=0;
-            }
-        }while(M.some(v=>v!==0));
-        return match/all;
-    }
     /**
      * ## Format percentage number to a string (including % sign)
      * @param {number} percent - `[0,1]` or `NaN`
@@ -318,40 +352,48 @@ const Roll=class Roll{
     static FormatPercent(percent){return Number.isNaN(percent)?"--%":(percent*100).toFixed(Roll.PRINT_PRECISION).replace(/(\.\d*[1-9])0*$|\.0*$/,"$1")+"%";}
     /**## [internal] get numeric value from {@linkcode Roll._value_} or `NaN` if invalid*/
     get _valueNum_(){return this._value_.checkValidity()?Number(this._value_.value):NaN}
+    /**
+     * ## [internal] Set {@linkcode Roll._htmlStart_} and {@linkcode Roll._htmlHead_} `data-sum` to {@linkcode sum}
+     * call with every dice change/roll
+     * @param {number|null} sum - sum of all {@linkcode Roll.dice}, `NaN` for "--" (during rolls), and `null` for empty (one dice or less)
+     */
+    _UpdateSum_(sum){this._htmlHead_.dataset.sum=this._htmlStart_.dataset.sum=sum==null?"":Number.isNaN(sum)?"--":String(sum);}
     /**## [internal] Calculate success rate after dice roll and set {@linkcode Roll._diceContainer_} class*/
     _UpdateClass_(){
         this._diceContainer_.classList.remove("success","failure");
-        if(this._dice_.size===0)return;
+        this._UpdateSum_(this.dice.size>1?NaN:null);
+        if(this.dice.size===0)return;
+        let total=0;
+        this.dice.forEach(v=>void(total+=v.num??NaN));
+        if(Number.isNaN(total))return;
+        this._UpdateSum_(this.dice.size>1?total:null);
         const num=this._valueNum_;
         if(Number.isNaN(num))return;
-        let total=0;
-        this._dice_.forEach(v=>void(total+=v.num));
-        if(Number.isNaN(total))return;
-        this._diceContainer_.classList.add(Roll[this._op_.value](num,total)?"success":"failure");
+        this._diceContainer_.classList.add(OperationType[this._op_.value](num,total)?"success":"failure");
     }
-    /**## [internal] Update {@linkcode Roll._diceContainer_} CSS `--width` & class and {@linkcode Roll.chance} via {@linkcode Roll.Probability}*/
-    _UpdateRow_(){
-        this._diceContainer_.style.setProperty("--width",String(Math.ceil(Math.sqrt(this._dice_.size))));
+    /**## [internal] Update {@linkcode Roll._diceContainer_} CSS `--width` & class and {@linkcode Roll.chance} via {@linkcode Probability.Check} (of {@linkcode Roll._probability_})*/
+    _UpdateBlock_(){
+        this._diceContainer_.style.setProperty("--width",String(Math.ceil(Math.sqrt(this.dice.size))));
         this._UpdateClass_();
-        clearTimeout(this._timeoutProbability_);
-        this._timeoutProbability_=setTimeout(()=>{
-            /**@type {DiceType[]}*/const dice=Array.from(this._dice_,v=>v.type);
-            const t=performance.now();
-            this.chance=Roll.Probability(this._valueNum_,this._op_.value,dice);
-            console.log("%cProbability calculation took %oms for %o dice.","color:#0a0;font-size:larger",Number((performance.now()-t).toFixed(Roll.PRINT_PRECISION)),dice);
-            this._chance_.textContent=Roll.FormatPercent(this.chance);
-            this._CallbackChance_();
-        },2);
+        this.chance=this._probability_.Check(this._valueNum_,OperationType[this._op_.value]);
+        this._chance_.textContent=Roll.FormatPercent(this.chance);
+        this._CallbackChance_();
     }
     /**
-     * ## [internal] Remove {@linkcode dice} from collection and call {@linkcode Roll._UpdateRow_}
+     * ## [internal] Remove {@linkcode dice} from collection (and {@linkcode Roll._probability_}) and call {@linkcode Roll._UpdateBlock_}
      * re-enables {@linkcode Roll._add_} when below {@linkcode Roll.MAX_DICE}
      * @param {Dice} dice
      */
     _RemDice_(dice){
-        this._dice_.delete(dice);
-        this._UpdateRow_();
-        if(this._dice_.size<Roll.MAX_DICE)this._add_.disabled=false;
+        this.dice.delete(dice);
+        if(this.dice.size<Roll.MAX_DICE)this._add_.disabled=false;
+        clearTimeout(this._timeoutProbability_);
+        this._timeoutProbability_=setTimeout(()=>{
+            const t=performance.now();
+            this._probability_.Setup(Array.from(this.dice,v=>v.type).sort((a,b)=>(a.max??a)-(b.max??b)));
+            console.log("%cProbability setup took %oms for %o dice.","color:#0a0;font-size:larger",Number((performance.now()-t).toFixed(Roll.PRINT_PRECISION)),this.dice.size);
+            this._UpdateBlock_();
+        },2);
     }
     /**
      * ## Create a new {@linkcode Roll} object
@@ -363,6 +405,8 @@ const Roll=class Roll{
     constructor(CallbackRoll,CallbackRollEnd,CallbackChance,CallbackRemove){
         /**@type {DocumentFragment}*/const T=html.throw.content.cloneNode(true);
         /**@type {HTMLDivElement}*/this.html=T.firstElementChild;
+        /**@type {HTMLDivElement}*/this._htmlStart_=T.querySelector("div.throw>div.start");
+        /**@type {HTMLDivElement}*/this._htmlHead_=T.querySelector("div.throw>div.start>div.head");
         /**@type {HTMLSpanElement}*/this._name_=T.querySelector("div.throw>div.start>span");
         /**@type {HTMLInputElement}*/this._value_=T.querySelector("div.throw>div.start>div.head>input");
         /**@type {HTMLSelectElement}*/this._op_=T.querySelector("div.throw>div.start>div.head>select");
@@ -377,9 +421,11 @@ const Roll=class Roll{
         /**@type {(self:Roll)=>void}*/this._CallbackRemove_=CallbackRemove;
         /**@type {number} percentage (`[0,1]`) chance for this dice roll*/
         this.chance=NaN;
-        /**@type {Set<Dice>} [internal] collection of {@linkcode Dice} in {@linkcode Roll._diceContainer_}*/
-        this._dice_=new Set();
-        /**@type {number} [internal] timeout id to delay call to {@linkcode Roll.Probability} in {@linkcode Roll._UpdateRow_}*/
+        /**@type {Set<Dice>} collection of {@linkcode Dice} in this dice roll*/
+        this.dice=new Set();
+        /**@type {Probability} [internal] for calculating probability for this block*/
+        this._probability_=new Probability();
+        /**@type {number} [internal] timeout id to delay calls to {@linkcode Probability.Setup} (of {@linkcode Roll._probability_}) in {@linkcode Roll.AddDice} and {@linkcode Roll._RemDice_}*/
         this._timeoutProbability_=NaN;
         /**@type {CSSStyleDeclaration} [internal] live style declarations of {@linkcode Roll._diceContainer_}*/
         this._diceContainerStyle_=getComputedStyle(this._diceContainer_);
@@ -387,61 +433,71 @@ const Roll=class Roll{
             if((this._name_.textContent=this._name_.textContent.trim())==="")this.Remove();
         },{passive:true});
         this._name_.addEventListener("keydown",ev=>{
-            this._name_.textContent=this._name_.textContent.trim();
+            if(this._name_.textContent.length>=Number(this._name_.dataset.maxlength))ev.preventDefault();
             if(ev.key==="Enter"){
                 ev.preventDefault();
                 if(this._name_.textContent==="")this.Remove();
             }
         },{passive:false});
-        this._value_.addEventListener("input",()=>this._UpdateRow_(),{passive:true});
+        this._value_.addEventListener("input",()=>this._UpdateBlock_(),{passive:true});
         this._value_.addEventListener("keydown",ev=>{
             if(ev.key!=="Enter"||ev.repeat)return;
             ev.preventDefault();
             this.RollAll();
         },{passive:false});
-        this._op_.addEventListener("change",()=>this._UpdateRow_(),{passive:true});
-        this._add_.addEventListener("click",()=>this.AddDice(Number(this._addSelect_.value)),{passive:true});
-        this._diceContainer_.addEventListener("dblclick",ev=>{
-            if(ev.target!==this._diceContainer_)return;
+        this._op_.addEventListener("change",()=>this._UpdateBlock_(),{passive:true});
+        this._add_.addEventListener("click",()=>this.AddDice(DiceType[this._addSelect_.value]),{passive:true});
+        this.html.addEventListener("dblclick",ev=>{
+            if(ev.target?.tagName!=="DIV")return;
             ev.preventDefault();
+            if(ev.target!==this._diceContainer_){
+                if(html.hover.dataset.state!=="0")this.RollAll();
+                return;
+            }
             const{right,bottom}=this._diceContainer_.getBoundingClientRect();
             const offsetRight=Math.trunc(right-Number.parseFloat(this._diceContainerStyle_.borderRightWidth)-ev.x);
             const offsetBottom=Math.trunc(bottom-Number.parseFloat(this._diceContainerStyle_.borderBottomWidth)-ev.y);
             if(offsetRight>=0&&offsetRight<=Roll.RESIZER_SIZE&&offsetBottom>=0&&offsetBottom<=Roll.RESIZER_SIZE){
                 this._diceContainer_.style.removeProperty("width");
                 this._diceContainer_.style.removeProperty("height");
-            }else if(this._dice_.size===0&&html.hover.dataset.state==="0")this.Remove();
+            }else if(this.dice.size===0&&html.hover.dataset.state==="0")this.Remove();
             else if(html.hover.dataset.state!=="0")this.RollAll();
-        },{passive:false});
-        this._diceContainer_.addEventListener("touchmove",ev=>{
-            if(html.hover.dataset.state!=="2")return;
-            ev.preventDefault();
-            const{clientX,clientY}=ev.touches[0];
-            for(const dice of this._dice_){
-                const{left,right,top,bottom}=dice.html.getBoundingClientRect();
-                if(
-                    !Number.isNaN(dice.num)
-                    &&clientX>left&&clientX<right
-                    &&clientY>top&&clientY<bottom
-                )dice.Roll();
-            }
         },{passive:false});
         /**@type {boolean} [internal] `true` when {@linkcode Roll.Remove} was called once*/
         this._rem_=false;
     }
     /**
-     * ## Add a new {@linkcode Dice} to collection/HTML
+     * ## Add a new {@linkcode Dice} to collection/HTML (and internal probability table)
      * aborts before exceeding {@linkcode Roll.MAX_DICE} and disables the add-a-dice button when reaching it
      * @param {DiceType} type
      */
     AddDice(type){
-        if(this._dice_.size>=Roll.MAX_DICE)return;
-        this._dice_.add(new Dice(type,this._diceContainer_,()=>{this._diceContainer_.classList.remove("success","failure");this._CallbackRoll_();},()=>{this._UpdateClass_();this._CallbackRollEnd_();},dice=>this._RemDice_(dice)));
-        this._UpdateRow_();
-        if(this._dice_.size>=Roll.MAX_DICE)this._add_.disabled=true;
+        if(this.dice.size>=Roll.MAX_DICE)return;
+        this.dice.add(new Dice(
+            type,
+            this._diceContainer_,
+            ()=>{
+                this._diceContainer_.classList.remove("success","failure");
+                this._UpdateSum_(this.dice.size>1?NaN:null);
+                this._CallbackRoll_();
+            },
+            ()=>{
+                this._UpdateClass_();
+                this._CallbackRollEnd_();
+            },
+            dice=>this._RemDice_(dice)
+        ));
+        if(this.dice.size>=Roll.MAX_DICE)this._add_.disabled=true;
+        clearTimeout(this._timeoutProbability_);
+        this._timeoutProbability_=setTimeout(()=>{
+            const t=performance.now();
+            this._probability_.Setup(Array.from(this.dice,v=>v.type).sort((a,b)=>(a.max??a)-(b.max??b)));
+            console.log("%cProbability setup took %oms for %o dice.","color:#0a0;font-size:larger",Number((performance.now()-t).toFixed(Roll.PRINT_PRECISION)),this.dice.size);
+            this._UpdateBlock_();
+        },2);
     }
     /**## Rolls all dice within this collection*/
-    RollAll(){this._dice_.forEach(v=>v.Roll());}
+    RollAll(){this.dice.forEach(v=>v.Roll());}
     /**
      * ## Remove all event listeners, saved {@linkcode Dice}, and {@linkcode Roll.html} from DOM
      * use before deleting obj
@@ -453,53 +509,45 @@ const Roll=class Roll{
             if((this._name_.textContent=this._name_.textContent.trim())==="")this.Remove();
         });
         this._name_.removeEventListener("keydown",ev=>{
-            this._name_.textContent=this._name_.textContent.trim();
+            if(this._name_.textContent.length>=Number(this._name_.dataset.maxlength))ev.preventDefault();
             if(ev.key==="Enter"){
                 ev.preventDefault();
                 if(this._name_.textContent==="")this.Remove();
             }
         });
-        this._value_.removeEventListener("input",()=>this._UpdateRow_());
+        this._value_.removeEventListener("input",()=>this._UpdateBlock_());
         this._value_.removeEventListener("keydown",ev=>{
             if(ev.key!=="Enter"||ev.repeat)return;
             ev.preventDefault();
             this.RollAll();
         });
-        this._op_.removeEventListener("change",()=>this._UpdateRow_());
-        this._add_.removeEventListener("click",()=>this.AddDice(Number(this._addSelect_.value)));
-        this._diceContainer_.removeEventListener("dblclick",ev=>{
-            if(ev.target!==this._diceContainer_)return;
+        this._op_.removeEventListener("change",()=>this._UpdateBlock_());
+        this._add_.removeEventListener("click",()=>this.AddDice(DiceType[this._addSelect_.value]));
+        this.html.removeEventListener("dblclick",ev=>{
+            if(ev.target?.tagName!=="DIV")return;
             ev.preventDefault();
+            if(ev.target!==this._diceContainer_){
+                if(html.hover.dataset.state!=="0")this.RollAll();
+                return;
+            }
             const{right,bottom}=this._diceContainer_.getBoundingClientRect();
             const offsetRight=Math.trunc(right-Number.parseFloat(this._diceContainerStyle_.borderRightWidth)-ev.x);
             const offsetBottom=Math.trunc(bottom-Number.parseFloat(this._diceContainerStyle_.borderBottomWidth)-ev.y);
             if(offsetRight>=0&&offsetRight<=Roll.RESIZER_SIZE&&offsetBottom>=0&&offsetBottom<=Roll.RESIZER_SIZE){
                 this._diceContainer_.style.removeProperty("width");
                 this._diceContainer_.style.removeProperty("height");
-            }else if(this._dice_.size===0&&html.hover.dataset.state==="0")this.Remove();
+            }else if(this.dice.size===0&&html.hover.dataset.state==="0")this.Remove();
             else if(html.hover.dataset.state!=="0")this.RollAll();
         });
-        this._diceContainer_.removeEventListener("touchmove",ev=>{
-            if(html.hover.dataset.state!=="2")return;
-            ev.preventDefault();
-            const{clientX,clientY}=ev.touches[0];
-            for(const dice of this._dice_){
-                const{left,right,top,bottom}=dice.html.getBoundingClientRect();
-                if(
-                    !Number.isNaN(dice.num)
-                    &&clientX>left&&clientX<right
-                    &&clientY>top&&clientY<bottom
-                )dice.Roll();
-            }
-        });
-        this._dice_.forEach(v=>v.Remove());
+        this.dice.forEach(v=>v.Remove());
+        this.dice.clear();
         this.html.remove();
         this._CallbackRemove_(this);
     }
 };
 
 /**max number of {@linkcode rolls} allowed to exist at the same time*/
-const MAX_ROLLS=100;
+let MAX_ROLLS=100;
 
 /**@type {Set<Roll>} collection of all {@linkcode Roll}s in {@linkcode html.sheet}*/
 const rolls=new Set();
@@ -530,9 +578,29 @@ const CalcChance=()=>{
     html.chance.textContent=Roll.FormatPercent(p);
 };
 
+html.sheet.addEventListener("touchmove",ev=>{
+    if(ev.touches.length>1||html.hover.dataset.state!=="2")return;
+    const{clientX,clientY,target}=ev.touches[0];
+    if(!(target instanceof SVGElement))return;
+    ev.preventDefault();
+    for(const[el,dice]of diceLookup){
+        const{top,bottom,left,right}=el.getBoundingClientRect();
+        if(clientY<top||clientY>bottom||clientX<left||clientX>right)continue;
+        if(!Number.isNaN(dice.num))dice.Roll();
+        break;
+    }
+},{passive:false});
 html.add.addEventListener("click",()=>{
     if(rolls.size>=MAX_ROLLS)return;
-    rolls.add(new Roll(()=>html.box.classList.remove("success","failure"),()=>CalcWin(),()=>CalcChance(),roll=>{rolls.delete(roll);CalcChance();}));
+    rolls.add(new Roll(
+        ()=>html.box.classList.remove("success","failure"),
+        ()=>CalcWin(),
+        ()=>CalcChance(),
+        roll=>{
+            rolls.delete(roll);
+            CalcChance();
+        }
+    ));
     CalcChance();
 },{passive:true});
 html.hover.addEventListener("click",()=>{
@@ -557,14 +625,17 @@ window.addEventListener("resize",()=>void html.box.classList.toggle("rows",windo
 window.dispatchEvent(new UIEvent("resize"));
 
 if(location.hash.length!==0){
-    const[,d]=location.hash.match(/^#(c|d(?:[468]|1(?:2|00?)|20))$/i)??[];
+    let[,d]=location.hash.match(/^#(c|d(?:[468]|1(?:2|00?)|20))$/i)??[];
     if(d!=null){
-        html.add.click();
-        /**@type {Roll}*/const r=rolls.values().next().value;
-        r.AddDice(DiceType[d.toUpperCase()]);
-        r.RollAll();
-        r._value_.focus();
-    }
+        d=d.toUpperCase();
+        if(d in DiceType){
+            html.add.click();
+            /**@type {Roll}*/const r=rolls.values().next().value;
+            r.AddDice(DiceType[d.toUpperCase()]);
+            r.RollAll();
+            r._value_.focus();
+        }else html.add.focus();
+    }else html.add.focus();
 }else html.add.focus();
 //~ remove search & hash from URL
 history.replaceState(null,"",location.href.replace(/[?#].*$/,""));
