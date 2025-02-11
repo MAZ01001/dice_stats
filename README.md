@@ -2,22 +2,13 @@
 
 DND dice rolls and statistics (success chance).
 
+- [Documentation](#documentation "Scroll to section: Documentation")
+- [Quick start](#quick-start "Scroll to section: Quick start")
+  - [Format](#format "Scroll to section: Format")
+- [Console DIY](#console-diy "Scroll to section: Console DIY")
+- [WIP](#wip "Scroll to section: WIP")
+
 > <https://maz01001.github.io/dice_stats/>
-
-## Quick start
-
-You can start with a dice up and rolling like so
-
-| Type | URL                                           |
-| ---- | --------------------------------------------- |
-| Coin | <https://maz01001.github.io/dice_stats/#C>    |
-| D4   | <https://maz01001.github.io/dice_stats/#D4>   |
-| D6   | <https://maz01001.github.io/dice_stats/#D6>   |
-| D8   | <https://maz01001.github.io/dice_stats/#D8>   |
-| D10  | <https://maz01001.github.io/dice_stats/#D10>  |
-| D12  | <https://maz01001.github.io/dice_stats/#D12>  |
-| D20  | <https://maz01001.github.io/dice_stats/#D20>  |
-| D100 | <https://maz01001.github.io/dice_stats/#D100> |
 
 ## Documentation
 
@@ -46,6 +37,7 @@ Buttons at the bottom of the view box:
       </td>
    </tr>
    <tr><td><i>Source Code</i></td>      <td>Link to this Repository.</td></tr>
+   <tr><td><kbd>Permalink</kbd></td>    <td>Create a permalink with the current setup (see <a href="#url-hash-quick-start" title="scroll to section: Quick start">Quick start</a>).</td></tr>
    <tr><td><kbd>Roll&nbsp;all</kbd></td><td>Rolls all dice on the page at once.</td></tr>
    <tr><td>--%</td>                     <td>Shows the total chance of success for all blocks; is "--%" when not all blocks have dice and not all <kbd>Value</kbd> fields are filled in (see below) or there are no blocks to begin with.</td></tr>
 </table>
@@ -83,9 +75,66 @@ Within each block:
 When dice are rolled they are colored based on success (<span style="color:#0c0">green</span> &iff; success, <span style="color:#f44">red</span> &iff; failure, and grey if the <kbd>Value</kbd> field of that block is not filled in)
 and so is the border of the viewing box (same colors but all blocks need to be successful for it to count as successful).
 
-You can also navigate this page with keyboard only and touch only should also work just fine.
+You can also navigate this page with keyboard-only, touch-only should also work just fine.
 
 The layout changes to a column with rows instead of rows with blocks when the screen width is smaller than its height (usually mobile devices have this ratio).
+
+Scroll [UP](#documentation "Scroll to start of section: Documentation")
+    | [TOP](#dice-stats "Scroll to top of document: Dice Stats")
+
+## Quick start
+
+Directly loading full dice roll setup from URL hash (#):
+
+- <https://maz01001.github.io/dice_stats/#D20>
+
+  ```text
+  empty >= { 1 * D20 }
+  ```
+
+- <https://maz01001.github.io/dice_stats/#2=2C,13+2D6+D12,123%3C=3D100d100>
+
+  ```text
+  2 = { 2 * C }
+  13 >= { 2 * D6 + 1 * D12 }
+  123 <= { 4 * D100 }
+  ```
+
+- <https://maz01001.github.io/dice_stats/#150%3E12d20,15+2d12,5gtd8,roll>
+
+  ```text
+  150 > { 12 * D20 }
+  15 >= { 2 * D12 }
+  5 > { 1 * D8 }
+
+  roll all dice after loading
+  ```
+
+### Format
+
+The general format is:
+
+`"Name title"` `Value` `Operator` `Dice list`
+
+- `"Name title"` any text within double quotes where `"` is escaped as `""` or `\"` and `\` is escaped as `\\` (can be empty: `""`)
+- `Value` any positive (finite) integer (including 0)
+- `Operator` one of `GE` `>=` `LE` `<=` `GT` `>` `LT` `<` `EQ` `=` `==` `===` (case insensitive)
+- `Dice list` list of `amount` `dice type` with `+` as separator (and at the beginning)
+  - `Amount` positive integer smaller than 2<sup>53</sup> (automatically caps at `MAX_DICE`)
+  - `Dice type` one of `C` `D4` `D6` `D8` `D10` `D12` `D20` `D100` (case insensitive) other dice like `D404` are parsed but ignored
+
+where each box is optional and the whole thing can be repeated with `,` as a separator (yes `,,,` is valid and creates 3 empty boxes)
+
+also, copy-pasting url/format directly on the page loads that setup
+
+and for those that can read regular expressions:
+
+```javascript
+/(?!$)(?:"((?:\\.|""|[^\\"])*)")?(?:(?:(\d*)([><]=?|==?=?|[GL][ET]|EQ))?(\+?\d*(?:C+\+?\d*|(?:D\d+)+(?:\+\d*)?)*(?:C+|(?:D\d+)+))?|(\d+)((?:\+\d*)?(?:C+\+?\d*|(?:D\d+)+(?:\+\d*)?)*(?:C+|(?:D\d+)+))?)(?:,|$)/giy
+```
+
+Scroll [UP](#quick-start "Scroll to start of section: Quick start")
+    | [TOP](#dice-stats "Scroll to top of document: Dice Stats")
 
 ## Console DIY
 
@@ -96,9 +145,9 @@ Inside the browser dev console, some limits can be adjusted:
 | `Dice.ANIM_TIME`       | Animation speed of dice rolls in milliseconds            | 1000    | &lbrack;0,&infin;&lbrack;         |
 | `Roll.PRINT_PRECISION` | Number of decimal places for percentages (only visually) | 5       | &lbrack;0..20&rbrack;             |
 | `Roll.MAX_DICE`        | Maximum amount of dice per block                         | 48      | &lbrack;0..90071992547409&rbrack; |
-| `MAX_ROLLLS`           | Maximum amount of blocks                                 | 100     | &lbrack;0..2<sup>53</sup>&lbrack; |
+| `Sheet.MAX_ROLLLS`     | Maximum amount of blocks                                 | 100     | &lbrack;0..2<sup>53</sup>&lbrack; |
 
-Also you can generate a number based on a dice type like so:
+Also, you can generate a number based on a dice type like so:
 
 ```javascript
 // with supported dice
@@ -142,7 +191,9 @@ const chance = P.Check(80, (value, diceSum) => value >= diceSum);
 // 0.395 → 39.5% for 80 >= sum of dice when rolling given dice (simultaneously)
 ```
 
+Scroll [UP](#console-diy "Scroll to start of section: Console DIY")
+    | [TOP](#dice-stats "Scroll to top of document: Dice Stats")
+
 ## WIP
 
-- Add more options to URL args
 - better documentation in JSDoc
