@@ -22,6 +22,7 @@
     <noscript>JavaScript must be enabled!</noscript>
     <div id="box">
         <div id="sheet"></div>
+        <hr>
         <div id="nav">
             <input type="button" id="add" value="Add roll" title="Add a dice roll">
             <input type="button" id="hover" value="Click to remove" data-state="0" title="Switch between &quot;remove dice on click&quot; / &quot;roll dice on click&quot; / &quot;roll dice on click or hover/swipe&quot;">
@@ -32,43 +33,39 @@
         </div>
     </div>
     <div id="permalinkNote">Permalink copied to clipboard</div>
-    <template id="dice">
-        <svg width="100" height="100" tabindex="0"><use href="#d20"/><text x="50" y="50">?</text><title>D20 [Icosahedron] click to remove/roll</title></svg>
-    </template>
-    <template id="throw">
-        <div class="throw">
-            <div class="start" data-sum="">
-                <span contenteditable data-maxlength="1000" title="Custom name for this dice roll - clear to remove dice roll">Name</span>
-                <div class="head" data-sum="">
-                    <input type="number" min="0" step="1" inputmode="numeric" required placeholder="Value" title="Number value to check against the dice roll">
-                    <select title="Choose the comparison operator">
-                        <option value="GE" title="greater than or equal to" selected>&ge;</option>
-                        <option value="LE" title="less than or equal to">&le;</option>
-                        <option value="GT" title="greater than">&gt;</option>
-                        <option value="LT" title="less than">&lt;</option>
-                        <option value="EQ" title="equal to">=</option>
-                    </select>
-                </div>
-            </div>
-            <div class="dice"></div>
-            <div class="end">
-                <div class="tail">
-                    <input type="button" value="Add" title="Add selected dice">
-                    <select title="Select a dice">
-                        <option value="C" title="Coin with 2 faces: [1, 2]">C</option>
-                        <option value="D4" title="Dice with 4 faces: [1, 2, 3, 4]">D4</option>
-                        <option value="D6" title="Dice with 6 faces: [1, 2, ..., 6]">D6</option>
-                        <option value="D8" title="Dice with 8 faces: [1, 2, ..., 8]">D8</option>
-                        <option value="D10" title="Dice with 10 faces: [1, 2, ..., 10]">D10</option>
-                        <option value="D12" title="Dice with 12 faces: [1, 2, ..., 12]">D12</option>
-                        <option value="D20" title="Dice with 20 faces: [1, 2, ..., 20]" selected>D20</option>
-                        <option value="D100" title="Dice with 10 faces: [10, 20, ..., 100]">D100</option>
-                    </select>
-                </div>
-                <span title="Chance of success for this dice roll">--%</span>
+    <template id="dice"><svg width="100" height="100" tabindex="0"><use href="#d20"/><text x="50" y="50">?</text><title>D20 [Icosahedron] click to remove/roll</title></svg></template>
+    <template id="throw"><div class="throw">
+        <div class="start" data-sum="">
+            <span contenteditable data-maxlength="1000" title="Custom name for this dice roll - clear to remove dice roll">Name</span>
+            <div class="head" data-sum="">
+                <input type="number" min="0" step="1" inputmode="numeric" required placeholder="Value" title="Number value to check against the dice roll">
+                <select title="Choose the comparison operator">
+                    <option value="GE" title="greater than or equal to" selected>&ge;</option>
+                    <option value="LE" title="less than or equal to">&le;</option>
+                    <option value="GT" title="greater than">&gt;</option>
+                    <option value="LT" title="less than">&lt;</option>
+                    <option value="EQ" title="equal to">=</option>
+                </select>
             </div>
         </div>
-    </template>
+        <div class="dice"></div>
+        <div class="end">
+            <div class="tail">
+                <input type="button" value="Add" title="Add selected dice">
+                <select title="Select a dice">
+                    <option value="C" title="Coin with 2 faces: [1, 2]">C</option>
+                    <option value="D4" title="Dice with 4 faces: [1, 2, 3, 4]">D4</option>
+                    <option value="D6" title="Dice with 6 faces: [1, 2, ..., 6]">D6</option>
+                    <option value="D8" title="Dice with 8 faces: [1, 2, ..., 8]">D8</option>
+                    <option value="D10" title="Dice with 10 faces: [1, 2, ..., 10]">D10</option>
+                    <option value="D12" title="Dice with 12 faces: [1, 2, ..., 12]">D12</option>
+                    <option value="D20" title="Dice with 20 faces: [1, 2, ..., 20]" selected>D20</option>
+                    <option value="D100" title="Dice with 10 faces: [10, 20, ..., 100]">D100</option>
+                </select>
+            </div>
+            <span title="Chance of success for this dice roll">--%</span>
+        </div>
+    </div></template>
     <svg id="dnd" display="none">
         <filter id="red"><feColorMatrix in="SourceGraphic" type="matrix" values="0 1 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/></filter>
         <filter id="green"><feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0"/></filter>
