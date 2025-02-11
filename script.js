@@ -71,6 +71,14 @@ const RNG=class RNG{
 /**Random number generator for dice rolls (init every page load)*/
 const rng=new RNG();
 
+/**@enum {(v:number,d:number)=>boolean}*/
+const OperationType=Object.freeze({
+    GE:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v>=d,
+    LE:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v<=d,
+    GT:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v>d,
+    LT:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v<d,
+    EQ:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v===d,
+});
 /**@enum {number|Readonly<{max:number,step:number,faces:number}>}*/
 const DiceType=Object.freeze({
     C:2,
@@ -82,27 +90,33 @@ const DiceType=Object.freeze({
     D20:20,
     D100:Object.freeze({max:100,step:10,faces:10}),
 });
-/**@enum {(v:number,d:number)=>boolean}*/
-const OperationType=Object.freeze({
-    GE:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v>=d,
-    LE:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v<=d,
-    GT:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v>d,
-    LT:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v<d,
-    EQ:/**@type {(v:number,d:number)=>boolean}*/(v,d)=>v===d,
-});
+/**
+ * ## Get key for {@linkcode diceType} in {@linkcode DiceType}
+ * @param {DiceType} diceType - value in {@linkcode DiceType}
+ * @returns {keyof typeof DiceType|null} key in {@linkcode DiceType} that results in {@linkcode diceType} or `null` if no key matches
+ */
+const GetKeyOfDiceType=diceType=>{
+    for(const key in DiceType)
+        if(DiceType[key]===diceType)return key;
+    return null;
+};
 
 const html=Object.freeze({
     /**@type {HTMLDivElement}*/box:document.getElementById("box"),
     /**@type {HTMLDivElement}*/sheet:document.getElementById("sheet"),
     /**@type {HTMLInputElement}*/add:document.getElementById("add"),
     /**@type {HTMLInputElement}*/hover:document.getElementById("hover"),
+    /**@type {HTMLInputElement}*/permalink:document.getElementById("permalink"),
     /**@type {HTMLInputElement}*/roll:document.getElementById("roll"),
     /**@type {HTMLSpanElement}*/chance:document.getElementById("chance"),
+    /**@type {HTMLDivElement}*/permalinkNote:document.getElementById("permalinkNote"),
     /**@type {HTMLTemplateElement}*/dice:document.getElementById("dice"),
     /**@type {HTMLTemplateElement}*/throw:document.getElementById("throw"),
 });
 /**@type {Map<SVGElement,Dice>} maps any {@linkcode SVGElement} to their respective {@linkcode Dice} object*/
 const diceLookup=new Map();
+/**Custom CSS for {@linkcode console} logging*/
+const consoleLogCSS="color:#0a0;font-size:larger";
 
 /**
  * ## Class for creating dice
@@ -182,14 +196,6 @@ const Dice=class Dice{
         }
     }
     /**
-     * ## [internal] Called from {@linkcode Dice.Roll} when animation finishes
-     * puts the text on the dice and calls the {@linkcode callback} (given the constructor at init)
-     */
-    _Timeout_(){
-        this._text_.textContent=String(this.num=Dice.RNG(this.type));
-        this._CallbackRollEnd_();
-    }
-    /**
      * ## Create a new {@linkcode Dice} object
      * adds itself to {@linkcode diceLookup}
      * @param {DiceType} type - dice type
@@ -247,7 +253,10 @@ const Dice=class Dice{
         this._text_.textContent="";
         this._useAnim_.play();
         this._textAnim_.play();
-        this._timeoutID_=setTimeout(()=>this._Timeout_(),Dice._TIMEOUT_DELAY_);
+        this._timeoutID_=setTimeout(()=>{
+            this._text_.textContent=String(this.num=Dice.RNG(this.type));
+            this._CallbackRollEnd_();
+        },Dice._TIMEOUT_DELAY_);
         this._CallbackRoll_();
     }
     /**
@@ -274,15 +283,12 @@ const Dice=class Dice{
  * uses {@linkcode DiceType} internally
  */
 const Probability=class Probability{
-    /**## Create a new (empty) {@linkcode Probability} object*/
-    constructor(){
-        /**@type {readonly[number[],number[]]} [internal] probability table*/
-        this._diceSums_=Object.freeze([[],[]]);
-        /**@type {number} [internal] index of final probability row in {@linkcode Probability._diceSums_}*/
-        this._diceSumIndex_=0;
-        /**@type {number} [internal] sum of all values in final row of {@linkcode Probability._diceSums_}*/
-        this._diceSumMax_=0;
-    }
+    /**@type {readonly[number[],number[]]} [internal] probability table*/
+    _diceSums_=Object.freeze([[],[]]);
+    /**@type {number} [internal] index of final probability row in {@linkcode Probability._diceSums_}*/
+    _diceSumIndex_=0;
+    /**@type {number} [internal] sum of all values in final row of {@linkcode Probability._diceSums_}*/
+    _diceSumMax_=0;
     /**
      * ## Populate internal probability table
      * @param {readonly DiceType[]} dice - list of dice (`number` => `{1, 2, ..., N}`; obj => `{1*STEP, 2*STEP, ..., MAX}`)
@@ -319,6 +325,10 @@ const Probability=class Probability{
     Check(value,comparison){
         if(Number.isNaN(value))return NaN;
         return this._diceSums_[this._diceSumIndex_].reduce((o,v,i)=>comparison(value,i)?o+v:o,0)/this._diceSumMax_;
+    }
+    static{//~ make class and prototype immutable
+        Object.freeze(Probability.prototype);
+        Object.freeze(Probability);
     }
 };
 
@@ -391,7 +401,7 @@ const Roll=class Roll{
         this._timeoutProbability_=setTimeout(()=>{
             const t=performance.now();
             this._probability_.Setup(Array.from(this.dice,v=>v.type).sort((a,b)=>(a.max??a)-(b.max??b)));
-            console.log("%cProbability setup took %oms for %o dice.","color:#0a0;font-size:larger",Number((performance.now()-t).toFixed(Roll.PRINT_PRECISION)),this.dice.size);
+            console.info("%cProbability setup took %oms for %o dice.",consoleLogCSS,Number((performance.now()-t).toFixed(Roll.PRINT_PRECISION)),this.dice.size);
             this._UpdateBlock_();
         },2);
     }
@@ -492,7 +502,7 @@ const Roll=class Roll{
         this._timeoutProbability_=setTimeout(()=>{
             const t=performance.now();
             this._probability_.Setup(Array.from(this.dice,v=>v.type).sort((a,b)=>(a.max??a)-(b.max??b)));
-            console.log("%cProbability setup took %oms for %o dice.","color:#0a0;font-size:larger",Number((performance.now()-t).toFixed(Roll.PRINT_PRECISION)),this.dice.size);
+            console.info("%cProbability setup took %oms for %o dice.",consoleLogCSS,Number((performance.now()-t).toFixed(Roll.PRINT_PRECISION)),this.dice.size);
             this._UpdateBlock_();
         },2);
     }
@@ -546,36 +556,237 @@ const Roll=class Roll{
     }
 };
 
-/**max number of {@linkcode rolls} allowed to exist at the same time*/
-let MAX_ROLLS=100;
-
-/**@type {Set<Roll>} collection of all {@linkcode Roll}s in {@linkcode html.sheet}*/
-const rolls=new Set();
-
-/**## Calculate if all rolls in total succeeded or failed*/
-const CalcWin=()=>{
-    html.box.classList.remove("success","failure");
-    if(rolls.size===0)return;
-    let f=false;
-    for(const roll of rolls){
-        if(roll._diceContainer_.classList.contains("failure"))f=true;
-        else if(!roll._diceContainer_.classList.contains("success"))return;
+/**
+ * ## Class for managing all dice rolls
+ * uses {@linkcode html.box}, {@linkcode html.chance}, and {@linkcode Roll} internally
+ */
+const Sheet=class Sheet{
+    /**
+     * ## Maximum amount of rolls/blocks
+     * keep in range `[1..2^53[` (positive safe integer)
+     */
+    static MAX_ROLLS=100;
+    /**@type {Set<Roll>} collection of all {@linkcode Roll}s in {@linkcode html.sheet}*/
+    static rolls=new Set();
+    /**[internal] Clear success/failure styling for {@linkcode html.box}*/
+    static _ClearWin_(){html.box.classList.remove("success","failure");}
+    /**[internal] Calculate if all rolls in total succeeded or failed*/
+    static _CalcWin_(){
+        Sheet._ClearWin_();
+        if(Sheet.rolls.size===0)return;
+        let f=false;
+        for(const roll of Sheet.rolls){
+            if(roll._diceContainer_.classList.contains("failure"))f=true;
+            else if(!roll._diceContainer_.classList.contains("success"))return;
+        }
+        html.box.classList.add(f?"failure":"success");
     }
-    html.box.classList.add(f?"failure":"success");
+    /**
+     * [internal] Calculate total chance of all {@linkcode Sheet.rolls} and display in {@linkcode html.chance}
+     * also calls {@linkcode Sheet._CalcWin_}
+     */
+    static _CalcChance_(){
+        Sheet._CalcWin_();
+        if(Sheet.rolls.size===0){
+            html.chance.textContent=Roll.FormatPercent(NaN);
+            return;
+        }
+        let p=1;
+        Sheet.rolls.forEach(v=>void(p*=v.chance));
+        html.chance.textContent=Roll.FormatPercent(p);
+    }
+    /**
+     * [internal] Removes a block from {@linkcode Sheet.rolls} and calls {@linkcode Sheet._CalcChance_}
+     * @param {Roll} roll - element in {@linkcode Sheet.rolls}
+     */
+    static _RemoveRoll_(roll){
+        Sheet.rolls.delete(roll);
+        Sheet._CalcChance_();
+    }
+    /**
+     * ## Creates a new dice roll block and adds it to {@linkcode Sheet.rolls}
+     * @returns {Roll|null} the newly created {@linkcode Roll} object or `null` if {@linkcode Sheet.MAX_ROLLS} is reached
+     */
+    static CreateRoll(){
+        if(Sheet.rolls.size>=Sheet.MAX_ROLLS)return null;
+        const roll=new Roll(Sheet._ClearWin_,Sheet._CalcWin_,Sheet._CalcChance_,Sheet._RemoveRoll_);
+        Sheet.rolls.add(roll);
+        Sheet._CalcChance_();
+        return roll;
+    }
+    /**## Rolls all dice on page*/
+    static RollAll(){Sheet.rolls.forEach(v=>v.RollAll());}
+    static{//~ make class and prototype immutable
+        Object.freeze(Sheet.prototype);
+        Object.freeze(Sheet);
+    }
+};
+
+/**
+ * ## Class for static regular expressions
+ * not to be confused with {@linkcode RegExp}
+ */
+const REGEXP=class REGEXP{
+    static _SETUP_FORMAT_=/(?!$)(?:"((?:\\.|""|[^\\"])*)")?(?:(?:(\d*)([><]=?|==?=?|[GL][ET]|EQ))?(\+?\d*(?:C+\+?\d*|(?:D\d+)+(?:\+\d*)?)*(?:C+|(?:D\d+)+))?|(\d+)((?:\+\d*)?(?:C+\+?\d*|(?:D\d+)+(?:\+\d*)?)*(?:C+|(?:D\d+)+))?)(?:,|$)/giy;
+    /**regexp (match-all) for dice setup in formatted text (syntax/capture)*/
+    static get SETUP_FORMAT(){
+        REGEXP._SETUP_FORMAT_.lastIndex=0;
+        return REGEXP._SETUP_FORMAT_;
+    }
+    static _SETUP_DICE_=/\+?(\d*)(C|D\d+)/giy;
+    /**regexp (match-all) for dice list capture within/after {@linkcode REGEXP.SETUP_FORMAT}*/
+    static get SETUP_DICE(){
+        REGEXP._SETUP_DICE_.lastIndex=0;
+        return REGEXP._SETUP_DICE_;
+    }
+    /**regexp (match-start) for {@linkcode BASE_URL} (case sensitive)*/
+    static BASE_URL=/^https:\/\/maz01001\.github\.io\/dice_stats\/?#?/;
+    static{//~ make class and prototype immutable
+        Object.freeze(REGEXP.prototype);
+        Object.freeze(REGEXP);
+    }
+};
+
+/**Project base URL*/
+const BASE_URL="https://maz01001.github.io/dice_stats/";
+
+/**animation for {@linkcode html.permalinkNote}*/
+const PERMALINK_NOTE_ANIMATION=html.permalinkNote.animate(
+    {scale:["0","1","1","0"],bottom:["-2rem","0rem","0rem","-2rem"]},
+    {duration:1000,easing:"cubic-bezier(0,.9,.9,0)"}
+);
+PERMALINK_NOTE_ANIMATION.finish();
+
+/**
+ * ## Create formatted text from current setup ({@linkcode REGEXP.SETUP_FORMAT})
+ * @param {boolean} [autoRoll] - if `true` automatically rolls all dice when loading via {@linkcode LoadSetupText} - default `false`
+ * @returns {string} current setup as formatted text
+ */
+const CreateSetupText=autoRoll=>{
+    const t=performance.now();
+    /**@type {string[]}*/let txt=[];
+    for(const roll of Sheet.rolls){
+        const name=roll._name_.textContent.replaceAll(/([\\"])/g,"\\$1");
+        if(name!=="Name")txt.push(`"${name}"`);
+        if(!Number.isNaN(roll._valueNum_))txt.push(roll._value_.value);
+        if(roll._op_.value!=="GE")txt.push(roll._op_.value);
+        let lastType=null,
+            counter=0;
+        for(const{type}of roll.dice)
+            if(lastType==null){
+                lastType=type;
+                ++counter;
+            }else if(lastType===type)++counter;
+            else{
+                if(counter!==1)
+                    if(/\d$/.test(txt[txt.length-1]))txt.push(`+${counter}`);
+                    else txt.push(String(counter));
+                txt.push(GetKeyOfDiceType(lastType)??"_");
+                lastType=type;
+                counter=1;
+            }
+        if(lastType!=null){
+            if(counter!==1)
+                if(/\d$/.test(txt[txt.length-1]))txt.push(`+${counter}`);
+                else txt.push(String(counter));
+            txt.push(GetKeyOfDiceType(lastType)??"_");
+        }
+        txt.push(",");
+    }
+    if(txt.length===0)return"";
+    if(autoRoll??false)txt.push("roll");
+    else if(txt[txt.length-2]!==",")txt.pop();
+    const out=txt.join("");
+    console.info("%cCreating setup text took %oms.",consoleLogCSS,Number((performance.now()-t).toFixed(Roll.PRINT_PRECISION)));
+    return out;
 };
 /**
- * ## Calculate total chance of all {@linkcode rolls} and display in {@linkcode html.chance}
- * also calls {@linkcode CalcWin}
+ * ## Load setup from formatted text ({@linkcode REGEXP.SETUP_FORMAT})
+ * removes current setup first (even if {@linkcode txt} is empty)
+ * @param {string} txt - formatted text (like from {@linkcode CreateSetupText})
  */
-const CalcChance=()=>{
-    CalcWin();
-    if(rolls.size===0){
-        html.chance.textContent=Roll.FormatPercent(NaN);
-        return;
+const LoadSetupText=txt=>{
+    const t=performance.now();
+    Sheet.rolls.forEach(v=>v.Remove());
+    for(const[,name,valA,operator,diceListA,valB,diceListB]of txt.matchAll(REGEXP.SETUP_FORMAT)){
+        const roll=Sheet.CreateRoll();
+        if(roll==null)break;
+        if(name!=null)roll._name_.textContent=name.replaceAll(/\\(.)/g,"$1").substring(0,Number(roll._name_.dataset.maxlength));
+        roll._value_.value=valA??valB??"";
+        if(operator!=null){
+            const op=operator.toUpperCase();
+            if(op in OperationType)roll._op_.value=op;
+            else switch(op){
+                case">=":roll._op_.value="GE";break;
+                case"<=":roll._op_.value="LE";break;
+                case">":roll._op_.value="GT";break;
+                case"<":roll._op_.value="LT";break;
+                case"=":case"==":case"===":roll._op_.value="EQ";break;
+            }
+        }
+        for(let[,num,type]of (diceListA??diceListB??"").matchAll(REGEXP.SETUP_DICE)){
+            if(roll.dice.size>=Roll.MAX_DICE)break;
+            let amount=Math.min(Number(num===""?1:num),Roll.MAX_DICE-roll.dice.size);
+            if(amount===0)continue;
+            if(!((type=type.toUpperCase())in DiceType))continue;
+            for(let i=0;i<amount;++i)roll.AddDice(DiceType[type]);
+        }
+        if(roll.dice.size===0)roll._UpdateBlock_();
     }
-    let p=1;
-    rolls.forEach(v=>void(p*=v.chance));
-    html.chance.textContent=Roll.FormatPercent(p);
+    if(txt.substring(txt.length-5).toLowerCase()===",roll")html.roll.click();
+    console.info("%cLoading setup text took %oms.",consoleLogCSS,Number((performance.now()-t).toFixed(Roll.PRINT_PRECISION)));
+};
+/**
+ * ## Creates permalink and copies it to clipboard
+ * @returns {URL} the newly created permalink
+ */
+const CopyPermalink=()=>{
+    PERMALINK_NOTE_ANIMATION.cancel();
+    const permalink=new URL(BASE_URL);
+    permalink.hash=CreateSetupText(false);
+    console.info("%cPermalink: %s",consoleLogCSS,permalink.href);
+    if(typeof navigator.clipboard==="undefined"){
+        html.permalinkNote.textContent="Clipboard is not available";
+        html.permalinkNote.dataset.state="f";
+        PERMALINK_NOTE_ANIMATION.play();
+    }else navigator.clipboard.writeText(permalink.href).then(
+        ()=>{
+            console.debug("%cPermalink successfully copied to clipboard.",consoleLogCSS);
+            html.permalinkNote.textContent="Permalink copied to clipboard";
+            html.permalinkNote.dataset.state="";
+            PERMALINK_NOTE_ANIMATION.play();
+        },
+        err=>{
+            console.error("%cCouldn't copy permalink to clipboard: %o",consoleLogCSS,err);
+            html.permalinkNote.textContent="Could not copy to clipboard";
+            html.permalinkNote.dataset.state="f";
+            PERMALINK_NOTE_ANIMATION.play();
+        }
+    );
+    return permalink;
+};
+/**
+ * [internal] Decode hash (#) from given URL
+ * tries parsing {@linkcode href} to URL and returns empty string if it fails
+ * @param {string|URL} href - encoded URL
+ * @returns {string} decoded string (not including #)
+ */
+const _GetHashOfURL_=href=>{
+    const url=(()=>{
+        try{
+            if(href instanceof URL)return decodeURI(href.href);
+            const parse=URL.parse(href)?.href;
+            return parse==null?href:decodeURI(parse);
+        }catch(err){
+            if(err instanceof URIError)
+                if(href instanceof URL)return href.href;
+                else return URL.parse(href)?.href??href;
+            throw err;
+        }
+    })();
+    const hashIndex=url.indexOf("#");
+    if(hashIndex===-1)return"";
+    return url.substring(hashIndex+1);
 };
 
 html.sheet.addEventListener("touchmove",ev=>{
@@ -590,19 +801,7 @@ html.sheet.addEventListener("touchmove",ev=>{
         break;
     }
 },{passive:false});
-html.add.addEventListener("click",()=>{
-    if(rolls.size>=MAX_ROLLS)return;
-    rolls.add(new Roll(
-        ()=>html.box.classList.remove("success","failure"),
-        ()=>CalcWin(),
-        ()=>CalcChance(),
-        roll=>{
-            rolls.delete(roll);
-            CalcChance();
-        }
-    ));
-    CalcChance();
-},{passive:true});
+html.add.addEventListener("click",()=>void Sheet.CreateRoll(),{passive:true});
 html.hover.addEventListener("click",()=>{
     switch(html.hover.dataset.state){
         case"0":
@@ -619,23 +818,44 @@ html.hover.addEventListener("click",()=>{
             break;
     }
 },{passive:true});
-html.roll.addEventListener("click",()=>rolls.forEach(v=>v.RollAll()),{passive:true});
+html.permalink.addEventListener("click",()=>void CopyPermalink(),{passive:true});
+html.roll.addEventListener("click",Sheet.RollAll,{passive:true});
 
 window.addEventListener("resize",()=>void html.box.classList.toggle("rows",window.innerWidth<window.innerHeight),{passive:true});
 window.dispatchEvent(new UIEvent("resize"));
 
-if(location.hash.length!==0){
-    let[,d]=location.hash.match(/^#(c|d(?:[468]|1(?:2|00?)|20))$/i)??[];
-    if(d!=null){
-        d=d.toUpperCase();
-        if(d in DiceType){
-            html.add.click();
-            /**@type {Roll}*/const r=rolls.values().next().value;
-            r.AddDice(DiceType[d.toUpperCase()]);
-            r.RollAll();
-            r._value_.focus();
-        }else html.add.focus();
-    }else html.add.focus();
-}else html.add.focus();
-//~ remove search & hash from URL
-history.replaceState(null,"",location.href.replace(/[?#].*$/,""));
+window.addEventListener("cut",ev=>{
+    if(ev.target instanceof HTMLInputElement&&ev.target.type==="number"||String(document.getSelection()??"").length!==0)return;
+    ev.preventDefault();
+    CopyPermalink();
+    Sheet.rolls.forEach(v=>v.Remove());
+},{passive:false});
+window.addEventListener("copy",ev=>{
+    if(ev.target instanceof HTMLInputElement&&ev.target.type==="number"||String(document.getSelection()??"").length!==0)return;
+    ev.preventDefault();
+    CopyPermalink();
+},{passive:false});
+window.addEventListener("paste",ev=>{
+    const clipCode=ev.clipboardData?.getData("text/plain")??"";
+    if(clipCode.length===0||ev.target instanceof HTMLInputElement&&ev.target.type==="number")return;
+    ev.preventDefault();
+    if(REGEXP.SETUP_FORMAT.test(clipCode))return LoadSetupText(clipCode);
+    if(!clipCode.startsWith("#")&&!REGEXP.BASE_URL.test(clipCode))return;
+    const clipHash=_GetHashOfURL_(clipCode);
+    if(clipHash.length!==0)LoadSetupText(clipHash);
+},{passive:false});
+
+window.addEventListener("hashchange",ev=>{
+    const hash=_GetHashOfURL_(ev.newURL);
+    if(hash.length===0)return;
+    ev.preventDefault();
+    LoadSetupText(hash);
+},{passive:false});
+
+//~ load from URL hash (#) if valid
+(()=>{
+    const hash=_GetHashOfURL_(location.href);
+    if(hash.length===0)return html.add.focus();
+    LoadSetupText(hash);
+    html.roll.focus();
+})();
