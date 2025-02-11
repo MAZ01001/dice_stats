@@ -146,6 +146,7 @@ div#sheet>div.throw>div.end>span{
 }
 div#nav{
     display: flex;
+    flex-wrap: wrap;
     place-content: safe center;
     place-items: safe center;
     gap: 1rem;
@@ -185,13 +186,30 @@ div#box.rows>div#sheet>div.throw>div.end{
     gap: 1rem;
 }
 div#box.rows>div#sheet>div.throw>div.end{flex-direction: column-reverse;}
-div#box.rows>div#nav{display: grid;}
-div#box.rows>div#nav>a{grid-area: 2/1/3/3;}
 /* --------------------------------------------------------- */
-div#box:not(.rows)>div#sheet>div.throw>div.start>div.head::after,
-div#box.rows>div#sheet>div.throw>div.start::after{
+div#box:not(.rows)>div#sheet>div.throw>div.start>div.head:not([data-sum=""])::after,
+div#box.rows>div#sheet>div.throw>div.start:not([data-sum=""])::after{
     display: block;
     content: attr(data-sum);
     font-size: large;
     color: #0a0;
+}
+/* --------------------------------------------------------- */
+div#permalinkNote{
+    pointer-events: none;
+    position: fixed;
+    translate: -50% -100%;
+    left: 50%;
+    bottom: -2rem;
+    padding: .2rem .7rem;
+    scale: 0%;
+    font-size: small;
+    white-space: nowrap;
+    border: 1px outset #777;
+    border-radius: 1rem;
+    background-color: #333;
+}
+div#permalinkNote[data-state=f]{
+    background-color: #a00;
+    color: #ff0;
 }
