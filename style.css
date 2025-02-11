@@ -74,6 +74,7 @@ div#sheet{
     place-items: safe center;
     gap: 2px;
 }
+div#sheet:empty{display: none;}
 div#sheet>div.throw{
     display: flex;
     flex-flow: column;
@@ -144,6 +145,12 @@ div#sheet>div.throw>div.end>span{
     font-size: large;
     white-space: nowrap;
 }
+div#box>hr{
+    box-sizing: border-box;
+    width: 100%;
+    border: 1px outset #000;
+}
+div#sheet:empty~hr{display: none;}
 div#nav{
     display: flex;
     flex-wrap: wrap;
