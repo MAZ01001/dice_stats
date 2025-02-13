@@ -180,7 +180,7 @@ And access to the probability-calculation function via the `Probability` class:
 ```javascript
 const P = new Probability();
 
-// setup probabiity for a dice throw with: C, D12, D20, D20, D100, C, D10
+// setup probability for a dice throw with: C, D12, D20, D20, D100, C, D10
 P.Setup([DiceType.C, DiceType.D12, DiceType.D20, DiceType.D20, DiceType.D100, DiceType.C, DiceType.D10]);
 // or
 P.Setup([2, 2, 10, 12, 20, 20, {max: 100, step: 10, faces: 10}]); // (slightly faster in ascending order)
