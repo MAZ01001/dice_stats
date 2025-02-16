@@ -669,7 +669,7 @@ const CreateSetupText=autoRoll=>{
         const name=roll._name_.textContent.replaceAll(/([\\"])/g,"\\$1");
         if(name!=="Name")txt.push(`"${name}"`);
         if(!Number.isNaN(roll._valueNum_))txt.push(roll._value_.value);
-        if(roll._op_.value!=="GE")txt.push(roll._op_.value.toLowerCase());
+        if(roll._op_.value!=="GE"&&(roll._op_.value in OperationType))txt.push(roll._op_.value.toLowerCase());
         let lastType=null,
             counter=0;
         for(const{type}of roll.dice)
@@ -682,7 +682,7 @@ const CreateSetupText=autoRoll=>{
                     if(/\d$/.test(txt[txt.length-1]))txt.push(`+${counter}`);
                     else txt.push(String(counter));
                 else if(counter===1&&/\d$/.test(txt[txt.length-1]))txt.push("+");
-                txt.push(GetKeyOfDiceType(lastType)?.toLowerCase()??"_");
+                txt.push(GetKeyOfDiceType(lastType)?.toLowerCase()??"d0");
                 lastType=type;
                 counter=1;
             }
@@ -691,7 +691,7 @@ const CreateSetupText=autoRoll=>{
                 if(/\d$/.test(txt[txt.length-1]))txt.push(`+${counter}`);
                 else txt.push(String(counter));
             else if(counter===1&&/\d$/.test(txt[txt.length-1]))txt.push("+");
-            txt.push(GetKeyOfDiceType(lastType)?.toLowerCase()??"_");
+            txt.push(GetKeyOfDiceType(lastType)?.toLowerCase()??"d0");
         }
         txt.push(",");
     }
