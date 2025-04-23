@@ -300,7 +300,7 @@ const Probability=class Probability{
         }else this._diceSums_[0].length=0;
         /**@type {number}*/const diceMax=dice.reduce((o,v)=>o+(typeof v==="number"?v:v.max),0);
         for(let i=0,sum=NaN,face=NaN;i<dice.length;++i){
-            const a=i&1,b=(i+1)&1;
+            const a=i&1,b=a^1;
             this._diceSums_[b].length=0;
             const d=dice[i];
             /**@type {number}*/const diceFaceMax=typeof d==="number"?d:d.max;
@@ -311,8 +311,7 @@ const Probability=class Probability{
                     if(faceSum>0)this._diceSums_[b][sum]=(this._diceSums_[b][sum]??0)+faceSum;
                 }
         }
-        this._diceSums_[(dice.length+1)&1].length=0;
-        this._diceSumIndex_=dice.length&1;
+        this._diceSums_[(this._diceSumIndex_=dice.length&1)^1].length=0;
         this._diceSumMax_=this._diceSums_[this._diceSumIndex_].reduce((o,v)=>o+v,0);
     }
     /**
